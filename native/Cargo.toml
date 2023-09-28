@@ -1,0 +1,39 @@
+[package]
+name = "native"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies.futures]
+version = "0.3.28"
+
+[dependencies.env_logger]
+version = "0.10.0"
+
+[dependencies.tokio-tungstenite]
+version = "0.20.1"
+
+[dependencies.tokio]
+version = "1.32.0"
+features = ["full"]
+
+[dependencies.tungstenite]
+version = "0.20.1"
+features = ["handshake"]
+
+[dependencies.futures-util]
+version = "0.3.28"
+features = ["sink", "std"]
+
+[dependencies.anyhow]
+version = "1.0.75"
+
+[dependencies.flutter_rust_bridge]
+version = "1.82.1"
+
+[build-dependencies.flutter_rust_bridge_codegen]
+version = "1.82.1"
