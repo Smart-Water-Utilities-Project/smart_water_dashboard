@@ -44,7 +44,7 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-native/target
+/target
 xcuserdata
 jniLibs
 
