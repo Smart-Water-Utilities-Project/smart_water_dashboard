@@ -8,10 +8,10 @@ const RUST_OUTPUT: &str = "src/bridge_generated.rs";
 const C_OUTPUT: &str = "../macos/Runner/bridge_generated.h";
 
 fn main() {
-  println!("cargo:rerun-if-changed=src/websocket.rs");
+  println!("cargo:rerun-if-changed=src/sqlite.rs");
 
   let raw_opts = RawOpts {
-    rust_input: vec!["src/websocket.rs".to_string()],
+    rust_input: vec!["src/sqlite.rs".to_string()],
     dart_output: vec![DART_OUTPUT.to_string()],
     rust_output: Some(vec![RUST_OUTPUT.to_string()]),
     c_output: Some(vec![C_OUTPUT.to_string()]),
