@@ -5,7 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:smart_water_dashboard/core/websocket.dart';
 import 'native/ffi.dart';
 
+
 void main() async {
+  await WebSocketServer.serve(
+    "127.0.0.1", 5678,
+  );
   runApp(const MainApp());
 }
 
@@ -18,6 +22,7 @@ class MainApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
+      debugShowCheckedModeBanner: false,
       home: const HomePage(),
     );
   }
@@ -31,39 +36,26 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  void initServer() async {
-    var s = await WebSocketServer.serve(
-      "127.0.0.1", 5678,
-      (data) {
-        WebSocketServer.instance.boardcast(
-          jsonEncode(data)
-        );
-        print(data);
-      },
-      onError: (e) {
-        print(e);
-      }
-    );
-    print(s.isRunning);
-  }
+  List<dynamic> l = [];
 
   @override
   void initState() {
     super.initState();
-    initServer();
+    WebSocketServer.instance.data.listen((event) {
+      setState(() {
+        l.add(event);
+      });
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text("You're running on"),
-          ],
-        ),
-      ),
+      body: ListView(
+        children: l.map((e) {
+          return Text(jsonEncode(e));
+        }).toList(),
+      )
     );
   }
 }

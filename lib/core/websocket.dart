@@ -7,11 +7,17 @@ class WebSocketServer {
 
   static WebSocketServer? _instance;
 
-  late HttpServer server;
-  late void Function(dynamic data) onData;
-  late void Function(dynamic error)? onError;
+  late HttpServer _server;
   bool isRunning = false;
-  List<WebSocket> clients = [];
+  final List<WebSocket> _clients = [];
+
+  late StreamController<dynamic> _dataController;
+  StreamSink<dynamic> get _dataSink => _dataController.sink;
+  late StreamController<dynamic> _errorController;
+  StreamSink<dynamic> get _errorSink => _errorController.sink;
+
+  Stream<dynamic> get data => _dataController.stream;
+  Stream<dynamic> get error => _errorController.stream;
 
   static WebSocketServer get instance {
     if (_instance == null) {
@@ -21,28 +27,31 @@ class WebSocketServer {
     return _instance!;
   }
 
-  static Future<WebSocketServer> serve(
-    dynamic address, int port, void Function(dynamic data) onData,
-    {bool v6Only = false, void Function(dynamic error)? onError}
-  ) async {
+  static Future<WebSocketServer> serve(dynamic address, int port, {bool v6Only = false}) async {
     if (_instance == null || !_instance!.isRunning) {
       _instance = WebSocketServer._();
+      _instance!._dataController = StreamController<dynamic>();
+      _instance!._errorController = StreamController<dynamic>();
       await runZonedGuarded(
         () async {
-          _instance!.server = await HttpServer.bind(address, port, v6Only: v6Only);
-          _instance!.server.listen(_instance!.onRequest);
+          _instance!._server = await HttpServer.bind(address, port, v6Only: v6Only);
+          _instance!._server.listen(_instance!.onRequest);
           _instance!.isRunning = true;
-          _instance!.onData = onData;
-          _instance!.onError = onError;
         },
         (Object e, StackTrace st) {
-          if (_instance!.onError != null) {
-            _instance!.onError!(e);
-          }
+          _instance!._errorSink.add(e);
         }
       );
     }
     return _instance!;
+  }
+
+  Future<void> close({bool force = false}) async {
+    _dataController.close();
+    _errorController.close();
+    _instance!._clients.clear();
+    _instance!._server.close(force: force);
+    _instance!.isRunning = false;
   }
 
   Future<bool> boardcast(dynamic data) async {
@@ -50,7 +59,7 @@ class WebSocketServer {
       return false;
     }
 
-    for (WebSocket client in clients) {
+    for (WebSocket client in _clients) {
       client.add(data);
     }
 
@@ -60,8 +69,8 @@ class WebSocketServer {
   void onRequest(HttpRequest req) async {
     var socket = await WebSocketTransformer.upgrade(req);
 
-    if (!clients.contains(socket)) {
-      clients.add(socket);
+    if (!_clients.contains(socket)) {
+      _clients.add(socket);
     }
 
     socket.listen(
@@ -74,11 +83,9 @@ class WebSocketServer {
           }
         }
         try {
-          onData(
-            jsonDecode(data)
-          );
+          _dataSink.add(jsonDecode(data));
         } on Exception catch (_) {
-          onData(data);
+          _dataSink.add(data);
         }
       }
     );
