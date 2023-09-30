@@ -1,15 +1,16 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:smart_water_dashboard/core/websocket.dart';
-import 'native/ffi.dart';
+import 'package:sqlite3/sqlite3.dart';
 
 
 void main() async {
   await WebSocketServer.serve(
     "127.0.0.1", 5678,
   );
+  final db = sqlite3.openInMemory();
+  db.dispose();
   runApp(const MainApp());
 }
 

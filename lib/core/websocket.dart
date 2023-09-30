@@ -27,14 +27,14 @@ class WebSocketServer {
     return _instance!;
   }
 
-  static Future<WebSocketServer> serve(dynamic address, int port, {bool v6Only = false}) async {
+  static Future<WebSocketServer> serve(dynamic address, int port) async {
     if (_instance == null || !_instance!.isRunning) {
       _instance = WebSocketServer._();
       _instance!._dataController = StreamController<dynamic>();
       _instance!._errorController = StreamController<dynamic>();
       await runZonedGuarded(
         () async {
-          _instance!._server = await HttpServer.bind(address, port, v6Only: v6Only);
+          _instance!._server = await HttpServer.bind(address, port);
           _instance!._server.listen(_instance!.onRequest);
           _instance!.isRunning = true;
         },
