@@ -41,7 +41,7 @@ class WebSocketEvent {
   final dynamic data;
   final String? eventName;
 
-  WebSocketEvent({required this.opCode, required this.data, this.eventName});
+  WebSocketEvent({required this.opCode, this.data, this.eventName});
 
   String toJson() {
     return jsonEncode(
@@ -62,6 +62,16 @@ class WebSocketEvent {
   }
 }
 
+class HeartbeatAck {
+  late (int, DateTime) current;
+  late (int, DateTime?) lastReceived;
+
+  HeartbeatAck() {
+    current = (0, DateTime.now());
+    lastReceived = (0, null);
+  }
+}
+
 class WebSocketServer {
   WebSocketServer._();
 
@@ -70,6 +80,8 @@ class WebSocketServer {
   late HttpServer _server;
   bool isRunning = false;
   final HashMap<int, WebSocketClient> _clients = HashMap();
+
+  HeartbeatAck _heartbeatAck = HeartbeatAck();
 
   late StreamController<dynamic> _dataController;
   StreamSink<dynamic> get _dataSink => _dataController.sink;
@@ -87,6 +99,46 @@ class WebSocketServer {
     return _instance!;
   }
 
+  Future<void> _waterDataHeartbeat() async {
+    Timer.periodic(
+      const Duration(seconds: 5),
+      (t) {
+        if (_instance == null || !_instance!.isRunning) {
+          t.cancel();
+        }
+
+        if (_heartbeatAck.lastReceived.$2 != null && _heartbeatAck.lastReceived.$1 != _heartbeatAck.current.$1) {
+          var z = (
+            _heartbeatAck.current.$2.second - _heartbeatAck.lastReceived.$2!.second
+          ) / (
+            _heartbeatAck.current.$1 - _heartbeatAck.lastReceived.$1
+          );
+
+          print("insert blank at ${z}");
+        }
+
+        _heartbeatAck.current = (_heartbeatAck.current.$1 + 1, DateTime.now());
+
+
+        _instance!._clients.values.where(
+          (e) => e.deviceType == DeviceType.sensor
+        ).forEach(
+          (client) {
+            client.socket.add(
+              WebSocketEvent(
+                opCode: 3,
+                data: {
+                  "id": _heartbeatAck.current.$1,
+                  "ts": _heartbeatAck.current.$2.toIso8601String()
+                }
+              ).toJson()
+            );
+          }
+        );
+      }
+    );
+  }
+
   static Future<WebSocketServer> serve(dynamic address, int port) async {
     if (_instance == null || !_instance!.isRunning) {
       _instance = WebSocketServer._();
@@ -97,6 +149,7 @@ class WebSocketServer {
           _instance!._server = await HttpServer.bind(address, port);
           _instance!._server.transform(WebSocketTransformer()).listen(_instance!._onRequest);
           _instance!.isRunning = true;
+          _instance!._waterDataHeartbeat();
         },
         (Object e, StackTrace st) {
           _instance!._errorSink.add(e);
@@ -126,16 +179,20 @@ class WebSocketServer {
     return true;
   }
 
-  void _handleEvent(int socketId, dynamic event) async {
-    try {
-      event = WebSocketEvent.fromJson(event);
-    } on Exception catch (_) {
-      return;
-    }
+  void _handleEvent(int socketId, dynamic rawEvent) async {
+    WebSocketEvent event = WebSocketEvent.fromJson(rawEvent);
 
     switch (event.opCode) {
       case 2: {
         _clients[socketId]!.deviceType = DeviceType.fromString(event.data["dt"]);
+      }
+      case 4: {
+
+
+
+        _heartbeatAck.lastReceived = (event.data["id"], DateTime.tryParse(event.data["ts"]));
+        print(event.data);
+
       }
     }
   }
@@ -147,16 +204,15 @@ class WebSocketServer {
         socket: socket,
         deviceType: DeviceType.unknown
       );
+
+      // Send `Hello` to client
       socket.add(
-        jsonEncode(
-          {
-            "op": 1,
-            "d": {
-              "id": socket.hashCode
-            },
-            "t": null
+        WebSocketEvent(
+          opCode: 1,
+          data: {
+            "id": socket.hashCode
           }
-        )
+        ).toJson()
       );
     }
 
@@ -173,7 +229,6 @@ class WebSocketServer {
           data = jsonDecode(data);
           _handleEvent(socket.hashCode, data);
           _dataSink.add(data);
-          print(_clients[socket.hashCode]!.deviceType);
         } on Exception catch (_) {
           _dataSink.add(data);
         }
