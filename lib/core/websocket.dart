@@ -3,6 +3,18 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:smart_water_dashboard/core/database.dart';
+
+
+extension Convert on DateTime {
+  int toMinutesSinceEpoch() {
+    return (microsecondsSinceEpoch / (60 * 1000)).floor();
+  }
+
+  int toSecondsSinceEpoch() {
+    return (microsecondsSinceEpoch / 1000).floor();
+  }
+}
 
 enum DeviceType {
   sensor,
@@ -62,16 +74,6 @@ class WebSocketEvent {
   }
 }
 
-class HeartbeatAck {
-  late (int, DateTime) current;
-  late (int, DateTime?) lastReceived;
-
-  HeartbeatAck() {
-    current = (0, DateTime.now());
-    lastReceived = (0, null);
-  }
-}
-
 class WebSocketServer {
   WebSocketServer._();
 
@@ -81,7 +83,8 @@ class WebSocketServer {
   bool isRunning = false;
   final HashMap<int, WebSocketClient> _clients = HashMap();
 
-  HeartbeatAck _heartbeatAck = HeartbeatAck();
+  final List<double> _heartbeatBuffer = [];
+  int _lastHeartbeatRecordAt = DateTime.now().toMinutesSinceEpoch();
 
   late StreamController<dynamic> _dataController;
   StreamSink<dynamic> get _dataSink => _dataController.sink;
@@ -95,6 +98,7 @@ class WebSocketServer {
     if (_instance == null) {
       _instance = WebSocketServer._();
       _instance!.isRunning = false;
+      _instance!._heartbeatBuffer.clear();
     }
     return _instance!;
   }
@@ -107,18 +111,22 @@ class WebSocketServer {
           t.cancel();
         }
 
-        if (_heartbeatAck.lastReceived.$2 != null && _heartbeatAck.lastReceived.$1 != _heartbeatAck.current.$1) {
-          var z = (
-            _heartbeatAck.current.$2.second - _heartbeatAck.lastReceived.$2!.second
-          ) / (
-            _heartbeatAck.current.$1 - _heartbeatAck.lastReceived.$1
+        int now = DateTime.now().toMinutesSinceEpoch();
+
+        if (now > _instance!._lastHeartbeatRecordAt && _instance!._heartbeatBuffer.isNotEmpty) {
+          DatabaseHandler.instance.insertWaterRecord(
+            WaterRecord(
+              now,
+              _instance!._heartbeatBuffer.reduce((a, b) => a + b) / _instance!._heartbeatBuffer.length,
+              0
+            )
           );
 
-          print("insert blank at ${z}");
+          _instance!._lastHeartbeatRecordAt = now;
+          _instance!._heartbeatBuffer.clear();
+
+          DatabaseHandler.instance.getRecord().forEach((e) => print(jsonEncode(e)));
         }
-
-        _heartbeatAck.current = (_heartbeatAck.current.$1 + 1, DateTime.now());
-
 
         _instance!._clients.values.where(
           (e) => e.deviceType == DeviceType.sensor
@@ -126,11 +134,7 @@ class WebSocketServer {
           (client) {
             client.socket.add(
               WebSocketEvent(
-                opCode: 3,
-                data: {
-                  "id": _heartbeatAck.current.$1,
-                  "ts": _heartbeatAck.current.$2.toIso8601String()
-                }
+                opCode: 3
               ).toJson()
             );
           }
@@ -149,6 +153,7 @@ class WebSocketServer {
           _instance!._server = await HttpServer.bind(address, port);
           _instance!._server.transform(WebSocketTransformer()).listen(_instance!._onRequest);
           _instance!.isRunning = true;
+          _instance!._heartbeatBuffer.clear();
           _instance!._waterDataHeartbeat();
         },
         (Object e, StackTrace st) {
@@ -163,6 +168,7 @@ class WebSocketServer {
     _dataController.close();
     _errorController.close();
     _instance!._clients.clear();
+    _instance!._heartbeatBuffer.clear();
     _instance!._server.close(force: force);
     _instance!.isRunning = false;
   }
@@ -187,12 +193,7 @@ class WebSocketServer {
         _clients[socketId]!.deviceType = DeviceType.fromString(event.data["dt"]);
       }
       case 4: {
-
-
-
-        _heartbeatAck.lastReceived = (event.data["id"], DateTime.tryParse(event.data["ts"]));
-        print(event.data);
-
+        _instance!._heartbeatBuffer.add(event.data["wf"]);
       }
     }
   }
