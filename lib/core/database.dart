@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
+import 'package:smart_water_dashboard/core/extension.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 
@@ -42,6 +43,11 @@ class DatabaseHandler {
     return _instance!;
   }
 
+  void dispose() {
+    _instance!._database.dispose();
+    _instance = null;
+  }
+
   void drop() {
     _instance!._database.execute(
       """
@@ -62,12 +68,16 @@ class DatabaseHandler {
     );
   }
 
-  List<WaterRecord> getRecord() {
+  List<WaterRecord> getRecord(DateTime? start, DateTime? end) {
     List<WaterRecord> result = [];
+
+    start ??= DateTime.fromMicrosecondsSinceEpoch(0);
+    end ??= DateTime.now();
 
     ResultSet query = _instance!._database.select(
       """
-        SELECT * FROM waterRecord;
+        SELECT * FROM waterRecord
+        WHERE timestamp >= ${start.toMinutesSinceEpoch()} AND timestamp <= ${end.toMinutesSinceEpoch()};
       """
     );
     for (final Row row in query) {

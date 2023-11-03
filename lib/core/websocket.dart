@@ -4,17 +4,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:smart_water_dashboard/core/database.dart';
+import 'package:smart_water_dashboard/core/extension.dart';
 
-
-extension Convert on DateTime {
-  int toMinutesSinceEpoch() {
-    return (microsecondsSinceEpoch / (60 * 1000)).floor();
-  }
-
-  int toSecondsSinceEpoch() {
-    return (microsecondsSinceEpoch / 1000).floor();
-  }
-}
 
 enum DeviceType {
   sensor,
@@ -111,23 +102,6 @@ class WebSocketServer {
           t.cancel();
         }
 
-        int now = DateTime.now().toMinutesSinceEpoch();
-
-        if (now > _instance!._lastHeartbeatRecordAt && _instance!._heartbeatBuffer.isNotEmpty) {
-          DatabaseHandler.instance.insertWaterRecord(
-            WaterRecord(
-              now,
-              _instance!._heartbeatBuffer.reduce((a, b) => a + b) / _instance!._heartbeatBuffer.length,
-              0
-            )
-          );
-
-          _instance!._lastHeartbeatRecordAt = now;
-          _instance!._heartbeatBuffer.clear();
-
-          DatabaseHandler.instance.getRecord().forEach((e) => print(jsonEncode(e)));
-        }
-
         _instance!._clients.values.where(
           (e) => e.deviceType == DeviceType.sensor
         ).forEach(
@@ -139,6 +113,33 @@ class WebSocketServer {
             );
           }
         );
+
+        int now = DateTime.now().toMinutesSinceEpoch();
+
+        if (now > _instance!._lastHeartbeatRecordAt) {
+          _instance!._lastHeartbeatRecordAt = now;
+
+          if (_instance!._heartbeatBuffer.isEmpty) {
+            DatabaseHandler.instance.insertWaterRecord(
+              WaterRecord(
+                now,
+                0,
+                0
+              )
+            );
+            return;
+          }
+
+          DatabaseHandler.instance.insertWaterRecord(
+            WaterRecord(
+              now,
+              _instance!._heartbeatBuffer.average(),
+              0
+            )
+          );
+
+          _instance!._heartbeatBuffer.clear();
+        }
       }
     );
   }
