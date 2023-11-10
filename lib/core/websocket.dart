@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:smart_water_dashboard/core/database.dart';
 import 'package:smart_water_dashboard/core/extension.dart';
 
@@ -75,7 +76,7 @@ class WebSocketServer {
   final HashMap<int, WebSocketClient> _clients = HashMap();
 
   final List<double> _heartbeatBuffer = [];
-  int _lastHeartbeatRecordAt = DateTime.now().toMinutesSinceEpoch();
+  int _heartbeatStartAt = DateTime.now().millisecondsSinceEpoch;
 
   late StreamController<dynamic> _dataController;
   StreamSink<dynamic> get _dataSink => _dataController.sink;
@@ -92,6 +93,10 @@ class WebSocketServer {
       _instance!._heartbeatBuffer.clear();
     }
     return _instance!;
+  }
+
+  double _calcHeartbeatValue(int now) {
+    return (_instance!._heartbeatBuffer.average() / 60.0) * ((now - _heartbeatStartAt) / 60000);
   }
 
   Future<void> _waterDataHeartbeat() async {
@@ -114,31 +119,27 @@ class WebSocketServer {
           }
         );
 
-        int now = DateTime.now().toMinutesSinceEpoch();
+        debugPrint("Send heartbeat to ${_instance!._clients.length} device(s)");
 
-        if (now > _instance!._lastHeartbeatRecordAt) {
-          _instance!._lastHeartbeatRecordAt = now;
+        int now = DateTime.now().millisecondsSinceEpoch;
 
-          if (_instance!._heartbeatBuffer.isEmpty) {
+        if (now - _heartbeatStartAt >= 15 * 60 * 1000) {
+          if (_instance!._heartbeatBuffer.isNotEmpty) {
             DatabaseHandler.instance.insertWaterRecord(
               WaterRecord(
-                now,
-                0,
+                now.floor(),
+                _calcHeartbeatValue(now),
                 0
               )
             );
-            return;
+
+            debugPrint("Insert record: (${now.floor()}, ${_calcHeartbeatValue(now)}, 0)");
           }
 
-          DatabaseHandler.instance.insertWaterRecord(
-            WaterRecord(
-              now,
-              _instance!._heartbeatBuffer.average(),
-              0
-            )
-          );
+          debugPrint("Clear buffer for 15 min heartbeat");
 
           _instance!._heartbeatBuffer.clear();
+          _heartbeatStartAt = now;
         }
       }
     );
@@ -156,9 +157,13 @@ class WebSocketServer {
           _instance!.isRunning = true;
           _instance!._heartbeatBuffer.clear();
           _instance!._waterDataHeartbeat();
+
+          debugPrint("Socket server running on $address:$port");
         },
         (Object e, StackTrace st) {
           _instance!._errorSink.add(e);
+
+          debugPrint("Socket server error: ${e.toString()}");
         }
       );
     }
@@ -172,6 +177,8 @@ class WebSocketServer {
     _instance!._heartbeatBuffer.clear();
     _instance!._server.close(force: force);
     _instance!.isRunning = false;
+
+    debugPrint("Socket server closed");
   }
 
   Future<bool> boardcast(dynamic data) async {
@@ -189,25 +196,54 @@ class WebSocketServer {
   void _handleEvent(int socketId, dynamic rawEvent) async {
     WebSocketEvent event = WebSocketEvent.fromJson(rawEvent);
 
+    debugPrint("Socket event incoming: $rawEvent");
+
     switch (event.opCode) {
       case 2: {
         _clients[socketId]!.deviceType = DeviceType.fromString(event.data["dt"]);
+
+        debugPrint("Set device type: ($socketId, ${DeviceType.fromString(event.data["dt"])})");
       }
       case 4: {
-        _instance!._heartbeatBuffer.add(event.data["wf"]);
+        int now = DateTime.now().millisecondsSinceEpoch;
+
+        if (_instance!._heartbeatBuffer.isNotEmpty && event.data["wf"] == 0.0) {
+          DatabaseHandler.instance.insertWaterRecord(
+            WaterRecord(
+              now.floor(),
+              _calcHeartbeatValue(now),
+              0
+            )
+          );
+
+          debugPrint((now).toString());
+          debugPrint((_heartbeatStartAt).toString());
+          debugPrint("Insert record: (${now.floor()}, ${_calcHeartbeatValue(now)}, 0)");
+
+          _instance!._heartbeatBuffer.clear();
+          _heartbeatStartAt = now;
+        }
+
+        if (event.data["wf"] != 0.0) {
+          if (_instance!._heartbeatBuffer.isEmpty) {
+            _heartbeatStartAt = now;
+          }
+          _instance!._heartbeatBuffer.add(event.data["wf"]);
+        }
       }
     }
   }
 
   void _onRequest(WebSocket socket) async {
     if (!_clients.containsKey(socket.hashCode)) {
+      debugPrint("New device connected: ${socket.hashCode}");
+
       _clients[socket.hashCode] = WebSocketClient(
         id: socket.hashCode,
         socket: socket,
         deviceType: DeviceType.unknown
       );
 
-      // Send `Hello` to client
       socket.add(
         WebSocketEvent(
           opCode: 1,
@@ -216,6 +252,8 @@ class WebSocketServer {
           }
         ).toJson()
       );
+
+      debugPrint("Send `Hello` to ${socket.hashCode}");
     }
 
     socket.listen(

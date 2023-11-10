@@ -1,6 +1,6 @@
 extension DateTimeConvert on DateTime {
-  int toMinutesSinceEpoch() {
-    return (millisecondsSinceEpoch / (60 * 1000)).floor();
+  double toMinutesSinceEpoch() {
+    return millisecondsSinceEpoch / (60 * 1000);
   }
 
   int toSecondsSinceEpoch() {
@@ -10,12 +10,24 @@ extension DateTimeConvert on DateTime {
 
 extension DoubleListUtil on List<double> {
   double sum() {
-    if (length < 0) return 0;
+    if (isEmpty) return 0;
     return reduce((a, b) => a + b);
   }
 
   double average() {
-    if (length < 0) return 0;
-    return reduce((a, b) => a + b) / length;
+    if (isEmpty) return 0;
+    return sum() / length;
+  }
+}
+
+extension DoubleIterableUtil on Iterable<double> {
+  double sum() {
+    if (isEmpty) return 0;
+    return reduce((a, b) => a + b);
+  }
+
+  double average() {
+    if (isEmpty) return 0;
+    return sum() / length;
   }
 }

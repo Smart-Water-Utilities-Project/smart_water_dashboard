@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:smart_water_dashboard/core/database.dart';
+import 'package:smart_water_dashboard/core/extension.dart';
 import 'package:smart_water_dashboard/core/websocket.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
+import 'package:syncfusion_flutter_charts/sparkcharts.dart';
 
 
 void main() async {
@@ -43,10 +46,34 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
+  int _chartEndAt = DateTime.now().millisecondsSinceEpoch;
+  List<(int, double)> _chartData = [];
 
   @override
   void initState() {
     super.initState();
+    updateChart();
+    Timer.periodic(
+      Duration(seconds: 30),
+      (t) {
+        int now = DateTime.now().millisecondsSinceEpoch;
+
+        if (now - _chartEndAt > 60 * 1000) {
+          updateChart();
+
+          setState(() {});
+        }
+      }
+    );
+  }
+
+  void updateChart() {
+    List<WaterRecord> data = DatabaseHandler.instance.getRecord(_chartEndAt, _chartEndAt + (10 * 60 * 1000));
+    _chartData.clear();
+    for (int t = _chartEndAt - (10 * 60 * 1000); t <= _chartEndAt; t += 60 * 1000) {
+      double waterValue = data.where((e) => t <= e.timestamp && e.timestamp < t + 60 * 1000).map((e) => e.waterFlow).sum();
+      _chartData.add((t, waterValue));
+    }
   }
 
   @override
@@ -57,8 +84,9 @@ class _HomePageState extends State<HomePage> {
         child: Row(
           children: [
             NavigationRail(
+              elevation: 10.0,
               selectedIndex: _selectedIndex,
-              labelType: NavigationRailLabelType.all,
+              labelType: NavigationRailLabelType.selected,
               groupAlignment: 0.0,
               leading: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
@@ -85,11 +113,28 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
             Expanded(
-              child: IndexedStack(
-                children: [
-
-                ],
-              ),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: IndexedStack(
+                  index: _selectedIndex,
+                  children: [
+                    SfCartesianChart(
+                      series: [
+                        LineSeries(
+                          dataSource: _chartData,
+                          xValueMapper: (datum, index) {
+                            return datum.$1;
+                          },
+                          yValueMapper: (datum, index) {
+                            return datum.$2;
+                          },
+                        )
+                      ],
+                    ),
+                    Center(child: Text("Settings"),)
+                  ],
+                ),
+              )
             )
           ],
         ),
@@ -98,63 +143,3 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// LineChart(
-//   LineChartData(
-//     titlesData: FlTitlesData(
-//       leftTitles: AxisTitles(
-//         axisNameWidget: Text("Litre / Minute"),
-//       ),
-//       topTitles: AxisTitles(
-//         axisNameWidget: Text("Time")
-//       ),
-//       bottomTitles: AxisTitles(
-//         sideTitles: SideTitles(
-//           interval: 1,
-//           reservedSize: 200,
-//           showTitles: true,
-//           getTitlesWidget: (value, meta) {
-//             DateTime t = DateTime.fromMillisecondsSinceEpoch(
-//               value.toInt() * 60 * 1000,
-//               isUtc: true
-//             );
-//             return SideTitleWidget(
-//               child: RotatedBox(
-//                 quarterTurns: 1,
-//                 child: Text(
-//                   "${t.hour.toString().padLeft(2, "0")}:${t.minute.toString().padLeft(2, "0")}",
-//                   textAlign: TextAlign.start,
-//                 )
-//               ),
-//               axisSide: meta.axisSide,
-//               space: 10,
-//             );
-//           },
-//         )
-//       )
-//     ),
-//     minY: 0,
-//     maxY: 500,
-//     lineBarsData: [
-//       LineChartBarData(
-//         spots: [
-//           FlSpot(28316245, 35.123),
-//           FlSpot(28316246, 345.123),
-//           FlSpot(28316247, 123.768),
-//           FlSpot(28316248, 10.32),
-//           FlSpot(28316249, 10.32),
-//           FlSpot(28316250, 10.32),
-//           FlSpot(28316251, 10.32),
-//           FlSpot(28316252, 10.32),
-//           FlSpot(28316253, 10.32),
-//           FlSpot(28316254, 10.32),
-//           FlSpot(28316255, 10.32),
-//           FlSpot(28316256, 10.32),
-//           FlSpot(28316257, 10.32),
-//           FlSpot(28316258, 10.32),
-//           FlSpot(28316259, 10.32),
-//           FlSpot(28316260, 10.32),
-//         ]
-//       )
-//     ]
-//   )
-// )

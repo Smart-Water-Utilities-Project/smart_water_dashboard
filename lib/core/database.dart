@@ -68,16 +68,16 @@ class DatabaseHandler {
     );
   }
 
-  List<WaterRecord> getRecord(DateTime? start, DateTime? end) {
+  List<WaterRecord> getRecord(int? start, int? end) {
     List<WaterRecord> result = [];
 
-    start ??= DateTime.fromMicrosecondsSinceEpoch(0);
-    end ??= DateTime.now();
+    start ??= 0;
+    end ??= DateTime.now().millisecondsSinceEpoch;
 
     ResultSet query = _instance!._database.select(
       """
         SELECT * FROM waterRecord
-        WHERE timestamp >= ${start.toMinutesSinceEpoch()} AND timestamp <= ${end.toMinutesSinceEpoch()};
+        WHERE timestamp >= $start AND timestamp <= $end;
       """
     );
     for (final Row row in query) {
