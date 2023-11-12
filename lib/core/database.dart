@@ -6,11 +6,12 @@ import 'package:sqlite3/sqlite3.dart';
 
 
 class WaterRecord {
+  final int id;
   final int timestamp;
   final double waterFlow;
   final double waterTemp;
 
-  WaterRecord(this.timestamp, this.waterFlow, this.waterTemp);
+  WaterRecord(this.id, this.timestamp, this.waterFlow, this.waterTemp);
 }
 
 class DatabaseHandler {
@@ -30,15 +31,7 @@ class DatabaseHandler {
       Directory docPath = await getApplicationDocumentsDirectory();
       _instance!._database = sqlite3.open("${docPath.path}/water_record.db");
 
-      _instance!._database.execute(
-        """
-          CREATE TABLE IF NOT EXISTS waterRecord (
-            timestamp INTEGER PRIMARY KEY NOT NULL,
-            waterFlow REAL NOT NULL,
-            waterTemp REAL NOT NULL
-          );
-        """
-      );
+      _instance!.createTable();
     }
     return _instance!;
   }
@@ -48,7 +41,20 @@ class DatabaseHandler {
     _instance = null;
   }
 
-  void drop() {
+  void createTable() {
+    _instance!._database.execute(
+      """
+        CREATE TABLE IF NOT EXISTS waterRecord (
+          id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+          timestamp INTEGER NOT NULL,
+          waterFlow REAL NOT NULL,
+          waterTemp REAL NOT NULL
+        );
+      """
+    );
+  }
+
+  void dropTable() {
     _instance!._database.execute(
       """
         DROP TABLE waterRecord;
@@ -56,13 +62,13 @@ class DatabaseHandler {
     );
   }
 
-  void insertWaterRecord(WaterRecord data) {
+  void insertWaterRecord(int timestamp, double waterFlow, double waterTemp) {
     _instance!._database.execute(
       """
         INSERT INTO waterRecord (
           timestamp, waterFlow, waterTemp
         ) VALUES (
-          '${data.timestamp}', '${data.waterFlow}', '${data.waterTemp}'
+          '$timestamp', '$waterFlow', '$waterTemp'
         )
       """
     );
@@ -71,8 +77,8 @@ class DatabaseHandler {
   List<WaterRecord> getRecord(int? start, int? end) {
     List<WaterRecord> result = [];
 
-    start ??= 0;
-    end ??= DateTime.now().millisecondsSinceEpoch;
+    start ??= DateTime.fromMicrosecondsSinceEpoch(0).toMinutesSinceEpoch().floor();
+    end ??= DateTime.now().toMinutesSinceEpoch().floor();
 
     ResultSet query = _instance!._database.select(
       """
@@ -82,7 +88,7 @@ class DatabaseHandler {
     );
     for (final Row row in query) {
       result.add(
-        WaterRecord(row['timestamp'], row['waterFlow'], row['waterTemp'])
+        WaterRecord(row['id'], row['timestamp'], row['waterFlow'], row['waterTemp'])
       );
     }
 

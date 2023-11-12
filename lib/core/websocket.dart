@@ -76,15 +76,19 @@ class WebSocketServer {
   final HashMap<int, WebSocketClient> _clients = HashMap();
 
   final List<double> _heartbeatBuffer = [];
-  int _heartbeatStartAt = DateTime.now().millisecondsSinceEpoch;
+  double _heartbeatStartAt = DateTime.now().toMinutesSinceEpoch();
+  late Timer _heartbeatTimer;
 
   late StreamController<dynamic> _dataController;
   StreamSink<dynamic> get _dataSink => _dataController.sink;
   late StreamController<dynamic> _errorController;
   StreamSink<dynamic> get _errorSink => _errorController.sink;
+  static final StreamController<String> _logController = StreamController<String>();
+  static StreamSink<String> get _logSink => _logController.sink;
 
   Stream<dynamic> get data => _dataController.stream;
   Stream<dynamic> get error => _errorController.stream;
+  static Stream<String> get log => _logController.stream;
 
   static WebSocketServer get instance {
     if (_instance == null) {
@@ -95,12 +99,12 @@ class WebSocketServer {
     return _instance!;
   }
 
-  double _calcHeartbeatValue(int now) {
-    return (_instance!._heartbeatBuffer.average() / 60.0) * ((now - _heartbeatStartAt) / 60000);
+  double _calcHeartbeatValue(double now) {
+    return (_instance!._heartbeatBuffer.average() / 60.0) * (now - _heartbeatStartAt);
   }
 
   Future<void> _waterDataHeartbeat() async {
-    Timer.periodic(
+    _heartbeatTimer = Timer.periodic(
       const Duration(seconds: 5),
       (t) {
         if (_instance == null || !_instance!.isRunning) {
@@ -119,24 +123,22 @@ class WebSocketServer {
           }
         );
 
-        debugPrint("Send heartbeat to ${_instance!._clients.length} device(s)");
+        _logSink.add("Send heartbeat to ${_instance!._clients.length} device(s)");
 
-        int now = DateTime.now().millisecondsSinceEpoch;
+        double now = DateTime.now().toMinutesSinceEpoch();
 
         if (now - _heartbeatStartAt >= 15 * 60 * 1000) {
           if (_instance!._heartbeatBuffer.isNotEmpty) {
             DatabaseHandler.instance.insertWaterRecord(
-              WaterRecord(
                 now.floor(),
                 _calcHeartbeatValue(now),
                 0
-              )
             );
 
-            debugPrint("Insert record: (${now.floor()}, ${_calcHeartbeatValue(now)}, 0)");
+            _logSink.add("Insert record: (${now.floor()}, ${_calcHeartbeatValue(now)}, 0)");
           }
 
-          debugPrint("Clear buffer for 15 min heartbeat");
+          _logSink.add("Clear buffer for 15 min heartbeat");
 
           _instance!._heartbeatBuffer.clear();
           _heartbeatStartAt = now;
@@ -150,6 +152,7 @@ class WebSocketServer {
       _instance = WebSocketServer._();
       _instance!._dataController = StreamController<dynamic>();
       _instance!._errorController = StreamController<dynamic>();
+
       await runZonedGuarded(
         () async {
           _instance!._server = await HttpServer.bind(address, port);
@@ -158,12 +161,12 @@ class WebSocketServer {
           _instance!._heartbeatBuffer.clear();
           _instance!._waterDataHeartbeat();
 
-          debugPrint("Socket server running on $address:$port");
+          _logSink.add("Socket server running on $address:$port");
         },
         (Object e, StackTrace st) {
           _instance!._errorSink.add(e);
 
-          debugPrint("Socket server error: ${e.toString()}");
+          _logSink.add("Socket server error: ${e.toString()}");
         }
       );
     }
@@ -171,14 +174,16 @@ class WebSocketServer {
   }
 
   Future<void> close({bool force = false}) async {
+    _logSink.add("Socket server closed");
+
     _dataController.close();
     _errorController.close();
+
     _instance!._clients.clear();
     _instance!._heartbeatBuffer.clear();
+    _heartbeatTimer.cancel();
     _instance!._server.close(force: force);
     _instance!.isRunning = false;
-
-    debugPrint("Socket server closed");
   }
 
   Future<bool> boardcast(dynamic data) async {
@@ -196,29 +201,30 @@ class WebSocketServer {
   void _handleEvent(int socketId, dynamic rawEvent) async {
     WebSocketEvent event = WebSocketEvent.fromJson(rawEvent);
 
-    debugPrint("Socket event incoming: $rawEvent");
+    _logSink.add("Socket event incoming: $rawEvent");
 
     switch (event.opCode) {
+      case 0: {
+        _handleDispatch(socketId, event);
+
+        _logSink.add("Recivied dispatch: ($socketId, ${event.eventName})");
+      }
       case 2: {
         _clients[socketId]!.deviceType = DeviceType.fromString(event.data["dt"]);
 
-        debugPrint("Set device type: ($socketId, ${DeviceType.fromString(event.data["dt"])})");
+        _logSink.add("Set device type: ($socketId, ${DeviceType.fromString(event.data["dt"])})");
       }
       case 4: {
-        int now = DateTime.now().millisecondsSinceEpoch;
+        double now = DateTime.now().toMinutesSinceEpoch();
 
         if (_instance!._heartbeatBuffer.isNotEmpty && event.data["wf"] == 0.0) {
           DatabaseHandler.instance.insertWaterRecord(
-            WaterRecord(
               now.floor(),
               _calcHeartbeatValue(now),
               0
-            )
           );
 
-          debugPrint((now).toString());
-          debugPrint((_heartbeatStartAt).toString());
-          debugPrint("Insert record: (${now.floor()}, ${_calcHeartbeatValue(now)}, 0)");
+          _logSink.add("Insert record: (${now.floor()}, ${_calcHeartbeatValue(now)}, 0)");
 
           _instance!._heartbeatBuffer.clear();
           _heartbeatStartAt = now;
@@ -234,10 +240,27 @@ class WebSocketServer {
     }
   }
 
+  void _handleDispatch(int socketId, WebSocketEvent event) {
+    switch (event.eventName) {
+      case "REQUEST_HISTORY_DATA": {
+        List<WaterRecord> data = DatabaseHandler.instance.getRecord(event.data["s"], event.data["e"]);
+        dynamic encodedData = data.map(
+          (e) => {"t": e.timestamp, "wf": e.waterFlow, "wt": e.waterTemp}
+        ).toList();
+
+        _clients[socketId]?.socket.add(
+          WebSocketEvent(
+            opCode: 0,
+            data: encodedData,
+            eventName: "REQUEST_HISTORY_DATA_ACK"
+          ).toJson()
+        );
+      }
+    }
+  }
+
   void _onRequest(WebSocket socket) async {
     if (!_clients.containsKey(socket.hashCode)) {
-      debugPrint("New device connected: ${socket.hashCode}");
-
       _clients[socket.hashCode] = WebSocketClient(
         id: socket.hashCode,
         socket: socket,
@@ -253,7 +276,7 @@ class WebSocketServer {
         ).toJson()
       );
 
-      debugPrint("Send `Hello` to ${socket.hashCode}");
+      _logSink.add("Device connected: ${socket.hashCode}");
     }
 
     socket.listen(
@@ -272,6 +295,14 @@ class WebSocketServer {
         } on Exception catch (_) {
           _dataSink.add(data);
         }
+      }
+    );
+
+    socket.done.then(
+      (value) {
+        _clients.remove(socket.hashCode);
+
+        _logSink.add("Device disconnected: ${socket.hashCode}");
       }
     );
   }

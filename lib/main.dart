@@ -1,13 +1,9 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:smart_water_dashboard/core/database.dart';
-import 'package:smart_water_dashboard/core/extension.dart';
 import 'package:smart_water_dashboard/core/websocket.dart';
-import 'package:syncfusion_flutter_charts/charts.dart';
-import 'package:syncfusion_flutter_charts/sparkcharts.dart';
+import 'package:smart_water_dashboard/page/data_chart.dart';
+import 'package:smart_water_dashboard/page/server_log.dart';
+import 'package:smart_water_dashboard/page/settings.dart';
 
 
 void main() async {
@@ -46,39 +42,9 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
-  int _chartEndAt = DateTime.now().millisecondsSinceEpoch;
-  List<(int, double)> _chartData = [];
-
-  @override
-  void initState() {
-    super.initState();
-    updateChart();
-    Timer.periodic(
-      Duration(seconds: 30),
-      (t) {
-        int now = DateTime.now().millisecondsSinceEpoch;
-
-        if (now - _chartEndAt > 60 * 1000) {
-          updateChart();
-
-          setState(() {});
-        }
-      }
-    );
-  }
-
-  void updateChart() {
-    List<WaterRecord> data = DatabaseHandler.instance.getRecord(_chartEndAt, _chartEndAt + (10 * 60 * 1000));
-    _chartData.clear();
-    for (int t = _chartEndAt - (10 * 60 * 1000); t <= _chartEndAt; t += 60 * 1000) {
-      double waterValue = data.where((e) => t <= e.timestamp && e.timestamp < t + 60 * 1000).map((e) => e.waterFlow).sum();
-      _chartData.add((t, waterValue));
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       body: SafeArea(
         child: Row(
@@ -107,6 +73,10 @@ class _HomePageState extends State<HomePage> {
                   label: Text("Overview")
                 ),
                 NavigationRailDestination(
+                  icon: Icon(Icons.text_snippet_rounded),
+                  label: Text("Server Log")
+                ),
+                NavigationRailDestination(
                   icon: Icon(Icons.settings_rounded),
                   label: Text("Settings")
                 ),
@@ -114,24 +84,13 @@ class _HomePageState extends State<HomePage> {
             ),
             Expanded(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.fromLTRB(20, 6, 40, 6),
                 child: IndexedStack(
                   index: _selectedIndex,
-                  children: [
-                    SfCartesianChart(
-                      series: [
-                        LineSeries(
-                          dataSource: _chartData,
-                          xValueMapper: (datum, index) {
-                            return datum.$1;
-                          },
-                          yValueMapper: (datum, index) {
-                            return datum.$2;
-                          },
-                        )
-                      ],
-                    ),
-                    Center(child: Text("Settings"),)
+                  children: const [
+                    DataChartPage(),
+                    ServerLogPage(),
+                    SettingsPage()
                   ],
                 ),
               )
@@ -142,4 +101,3 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
-
