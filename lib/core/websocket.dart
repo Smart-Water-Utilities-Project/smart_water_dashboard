@@ -120,10 +120,10 @@ class WebSocketServer {
                 opCode: 3
               ).toJson()
             );
+
+            _logSink.add("Send heartbeat to ${client.id}");
           }
         );
-
-        _logSink.add("Send heartbeat to ${_instance!._clients.length} device(s)");
 
         double now = DateTime.now().toMinutesSinceEpoch();
 
