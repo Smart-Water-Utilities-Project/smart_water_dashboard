@@ -15,22 +15,29 @@ class DataChartPage extends StatefulWidget {
 class _DataChartPageState extends State<DataChartPage> {
   double _chartEndAt = DateTime.now().toMinutesSinceEpoch();
   final List<(int, double)> _chartData = [];
+  late Timer _updateTimer;
 
   @override
   void initState() {
     super.initState();
-    updateChart();
-    Timer.periodic(
+    _updateChart();
+    _updateTimer = Timer.periodic(
       const Duration(seconds: 5),
       (t) {
-        updateChart();
-
-        setState(() {});
+        setState(() {
+          _updateChart();
+        });
       }
     );
   }
 
-  void updateChart() {
+  @override
+  void dispose() {
+    _updateTimer.cancel();
+    super.dispose();
+  }
+
+  void _updateChart() {
     List<WaterRecord> data = DatabaseHandler.instance.getRecord(_chartEndAt.floor() - 10, _chartEndAt.floor());
 
     _chartData.clear();

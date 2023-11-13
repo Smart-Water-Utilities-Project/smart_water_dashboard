@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -14,10 +13,18 @@ class ServerLogPage extends StatefulWidget {
 class _ServerLogPageState extends State<ServerLogPage> {
   final List<String> _logging = [];
 
+  String _getFontFamily() {
+    if (Platform.isIOS || Platform.isMacOS) {
+      return "Courier New";
+    } else if (Platform.isWindows) {
+      return "Cascadia Mono";
+    }
+    return "monospace";
+  }
+
   @override
   void initState() {
     super.initState();
-
   }
 
   @override
@@ -38,7 +45,10 @@ class _ServerLogPageState extends State<ServerLogPage> {
               (e) => Text(
                 e,
                 style: TextStyle(
-                  fontFamily: Platform.isIOS || Platform.isMacOS ? "Courier" : "monospace"
+                  fontFamily: _getFontFamily(),
+                  fontSize: 14,
+                  color: Colors.black,
+                  fontWeight: FontWeight.w500
                 ),
               )
             ).toList(),

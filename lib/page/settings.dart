@@ -72,6 +72,22 @@ class _SettingsPageState extends State<SettingsPage> {
                     _serverIpInputController.text,
                     int.parse(_serverPortInputController.text)
                   );
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      return AlertDialog(
+                        title: const Text("已更新伺服器設定"),
+                        actions: [
+                          TextButton(
+                            child: const Text('OK'),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
                 },
                 child: const Text("Apply"),
               )
@@ -92,7 +108,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 context: context,
                 builder: (context) {
                   return AlertDialog(
-                    title: const Text("確認要清除所有資料嗎？"),
+                    title: const Text("確定要清除所有資料嗎？"),
                     actions: [
                       TextButton(
                         child: const Text('Cancel'),

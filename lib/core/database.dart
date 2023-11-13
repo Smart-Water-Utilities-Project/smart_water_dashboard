@@ -74,6 +74,44 @@ class DatabaseHandler {
     );
   }
 
+  void deleteRecord(int id) {
+    _instance!._database.execute(
+      """
+        DELETE FROM waterRecord WHERE id = '$id';
+      """
+    );
+  }
+
+  int getRowCount() {
+    ResultSet query = _instance!._database.select(
+      """
+        SELECT COUNT(1) FROM waterRecord;
+      """
+    );
+
+    return query.rows[0][0] as int;
+  }
+
+  List<WaterRecord> getRecordByLimit(int from, int to) {
+    List<WaterRecord> result = [];
+
+    ResultSet query = _instance!._database.select(
+      """
+        SELECT * FROM waterRecord
+        LIMIT $from, $to;
+      """
+    );
+    query.forEach(
+      (Row row) {
+        result.add(
+          WaterRecord(row['id'], row['timestamp'], row['waterFlow'], row['waterTemp'])
+        );
+      }
+    );
+
+    return result;
+  }
+
   List<WaterRecord> getRecord(int? start, int? end) {
     List<WaterRecord> result = [];
 
@@ -86,11 +124,13 @@ class DatabaseHandler {
         WHERE timestamp >= $start AND timestamp <= $end;
       """
     );
-    for (final Row row in query) {
-      result.add(
-        WaterRecord(row['id'], row['timestamp'], row['waterFlow'], row['waterTemp'])
-      );
-    }
+    query.forEach(
+      (Row row) {
+        result.add(
+          WaterRecord(row['id'], row['timestamp'], row['waterFlow'], row['waterTemp'])
+        );
+      }
+    );
 
     return result;
   }

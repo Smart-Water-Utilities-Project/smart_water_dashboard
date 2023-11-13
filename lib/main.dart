@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:smart_water_dashboard/core/database.dart';
 import 'package:smart_water_dashboard/core/websocket.dart';
 import 'package:smart_water_dashboard/page/data_chart.dart';
+import 'package:smart_water_dashboard/page/database_view.dart';
 import 'package:smart_water_dashboard/page/server_log.dart';
 import 'package:smart_water_dashboard/page/settings.dart';
 
@@ -73,6 +74,10 @@ class _HomePageState extends State<HomePage> {
                   label: Text("Overview")
                 ),
                 NavigationRailDestination(
+                  icon: Icon(Icons.storage_rounded),
+                  label: Text("Database")
+                ),
+                NavigationRailDestination(
                   icon: Icon(Icons.text_snippet_rounded),
                   label: Text("Server Log")
                 ),
@@ -89,6 +94,7 @@ class _HomePageState extends State<HomePage> {
                   index: _selectedIndex,
                   children: const [
                     DataChartPage(),
+                    DatabaseViewPage(),
                     ServerLogPage(),
                     SettingsPage()
                   ],

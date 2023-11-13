@@ -3,7 +3,6 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:smart_water_dashboard/core/database.dart';
 import 'package:smart_water_dashboard/core/extension.dart';
 
@@ -186,13 +185,33 @@ class WebSocketServer {
     _instance!.isRunning = false;
   }
 
-  Future<bool> boardcast(dynamic data) async {
+  Future<bool> boardcast(WebSocketEvent event, DeviceType? deviceType) async {
     if (_instance == null || !_instance!.isRunning) {
       return false;
     }
 
-    for (WebSocketClient client in _clients.values) {
-      client.socket.add(data);
+    if (deviceType == null) {
+      _clients.values.forEach(
+        (client) {
+          client.socket.add(
+            event.toJson()
+          );
+
+          _logSink.add("Send boardcast to ${client.id}");
+        }
+      );
+    } else {
+      _clients.values.where(
+        (e) => e.deviceType == deviceType
+      ).forEach(
+        (client) {
+          client.socket.add(
+            event.toJson()
+          );
+
+          _logSink.add("Send boardcast to ${client.id}");
+        }
+      );
     }
 
     return true;
@@ -216,6 +235,15 @@ class WebSocketServer {
       }
       case 4: {
         double now = DateTime.now().toMinutesSinceEpoch();
+
+        _instance!.boardcast(
+          WebSocketEvent(
+            opCode: 0,
+            data: event.data,
+            eventName: "SENSOR_DATA_FORWARD"
+          ),
+          DeviceType.mobileApp
+        );
 
         if (_instance!._heartbeatBuffer.isNotEmpty && event.data["wf"] == 0.0) {
           DatabaseHandler.instance.insertWaterRecord(
