@@ -39,13 +39,15 @@ class _ServerLogPageState extends State<ServerLogPage> {
             return const Center(child: CircularProgressIndicator(),);
           }
 
+          String timestamp = DateTime.now().toIso8601String().substring(0, 19).replaceAll("T", " ");
+
           if (snapshot.data! == _previousLog) {
             _duplicateCount += 1;
             _logging.removeLast();
-            _logging.add("[${DateTime.now().toIso8601String()}] ($_duplicateCount) ${snapshot.data!}");
+            _logging.add("[$timestamp] (${_duplicateCount + 1}) ${snapshot.data!}");
           } else {
             _duplicateCount = 0;
-            _logging.add("[${DateTime.now().toIso8601String()}] ${snapshot.data!}");
+            _logging.add("[$timestamp] ${snapshot.data!}");
           }
 
           _previousLog = snapshot.data!;
