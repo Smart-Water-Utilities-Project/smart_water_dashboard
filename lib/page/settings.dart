@@ -27,7 +27,7 @@ class _SettingsPageState extends State<SettingsPage> {
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 30,),
+          const SizedBox(height: 8,),
           const Text(
             "更改伺服器位址",
             style: TextStyle(
@@ -108,7 +108,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 context: context,
                 builder: (context) {
                   return AlertDialog(
-                    title: const Text("確定要清除所有資料嗎？"),
+                    title: Text("確定要清除全部 ${DatabaseHandler.instance.getRowCount()} 筆資料嗎？"),
                     actions: [
                       TextButton(
                         child: const Text('Cancel'),

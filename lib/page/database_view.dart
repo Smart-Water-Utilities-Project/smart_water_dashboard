@@ -103,6 +103,7 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
           Expanded(
             child: ListView.separated(
               itemCount: _data.length,
+              physics: const NeverScrollableScrollPhysics(),
               itemBuilder: (context, index) {
                 return RowItem(
                   data: _data[index],

@@ -12,6 +12,8 @@ class ServerLogPage extends StatefulWidget {
 
 class _ServerLogPageState extends State<ServerLogPage> {
   final List<String> _logging = [];
+  String _previousLog = "";
+  int _duplicateCount = 0;
 
   String _getFontFamily() {
     if (Platform.isIOS || Platform.isMacOS) {
@@ -37,7 +39,16 @@ class _ServerLogPageState extends State<ServerLogPage> {
             return const Center(child: CircularProgressIndicator(),);
           }
 
-          _logging.add("[${DateTime.now().toIso8601String()}] ${snapshot.data!}");
+          if (snapshot.data! == _previousLog) {
+            _duplicateCount += 1;
+            _logging.removeLast();
+            _logging.add("[${DateTime.now().toIso8601String()}] ($_duplicateCount) ${snapshot.data!}");
+          } else {
+            _duplicateCount = 0;
+            _logging.add("[${DateTime.now().toIso8601String()}] ${snapshot.data!}");
+          }
+
+          _previousLog = snapshot.data!;
 
           return ListView(
             reverse: true,
