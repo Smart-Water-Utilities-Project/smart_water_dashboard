@@ -119,9 +119,12 @@ class WebSocketServer {
                 opCode: 3
               ).toJson()
             );
-
-            _logSink.add("Send heartbeat to ${client.id}");
           }
+        );
+        
+
+        _logSink.add(
+          "Send heartbeat to ${_clients.values.where((e) => e.deviceType == DeviceType.sensor).map((e) => e.id).join(", ")}"
         );
 
         double now = DateTime.now().toMinutesSinceEpoch();
@@ -196,9 +199,11 @@ class WebSocketServer {
           client.socket.add(
             event.toJson()
           );
-
-          _logSink.add("Send boardcast to ${client.id}");
         }
+      );
+
+      _logSink.add(
+        "Send boardcast to ${_clients.values.map((e) => e.id).join(", ")}"
       );
     } else {
       _clients.values.where(
@@ -208,9 +213,10 @@ class WebSocketServer {
           client.socket.add(
             event.toJson()
           );
-
-          _logSink.add("Send boardcast to ${client.id}");
         }
+      );
+      _logSink.add(
+        "Send boardcast to ${_clients.values.where((e) => e.deviceType == deviceType).map((e) => e.id).join(", ")}"
       );
     }
 
