@@ -99,20 +99,20 @@ class WebSocketServer {
   }
 
   double _calcHeartbeatValue(double now) {
-    return (_instance!._heartbeatBuffer.average() / 60.0) * (now - _heartbeatStartAt);
+    return (_heartbeatBuffer.average() / 60.0) * (now - _heartbeatStartAt);
   }
 
   Future<void> _waterDataHeartbeat() async {
     _heartbeatTimer = Timer.periodic(
       const Duration(seconds: 5),
       (t) {
-        if (_instance == null || !_instance!.isRunning) {
+        if (_instance == null || !isRunning) {
           t.cancel();
         }
 
-        _instance!._clients.values.where(
-          (e) => e.deviceType == DeviceType.sensor
-        ).forEach(
+        List<WebSocketClient> sensors = _clients.values.where((e) => e.deviceType == DeviceType.sensor).toList();
+
+        sensors.forEach(
           (client) {
             client.socket.add(
               WebSocketEvent(
@@ -122,15 +122,16 @@ class WebSocketServer {
           }
         );
         
-
-        _logSink.add(
-          "Send heartbeat to ${_clients.values.where((e) => e.deviceType == DeviceType.sensor).map((e) => e.id).join(", ")}"
-        );
+        if (sensors.isNotEmpty) {
+          _logSink.add(
+            "Send heartbeat to ${sensors.map((e) => e.id).join(", ")}"
+          );
+        }
 
         double now = DateTime.now().toMinutesSinceEpoch();
 
         if (now - _heartbeatStartAt >= 15 * 60 * 1000) {
-          if (_instance!._heartbeatBuffer.isNotEmpty) {
+          if (_heartbeatBuffer.isNotEmpty) {
             DatabaseHandler.instance.insertWaterRecord(
                 now.floor(),
                 _calcHeartbeatValue(now),
@@ -142,7 +143,7 @@ class WebSocketServer {
 
           _logSink.add("Clear buffer for 15 min heartbeat");
 
-          _instance!._heartbeatBuffer.clear();
+          _heartbeatBuffer.clear();
           _heartbeatStartAt = now;
         }
       }
@@ -181,44 +182,33 @@ class WebSocketServer {
     _dataController.close();
     _errorController.close();
 
-    _instance!._clients.clear();
-    _instance!._heartbeatBuffer.clear();
+    _clients.clear();
+    _heartbeatBuffer.clear();
     _heartbeatTimer.cancel();
-    _instance!._server.close(force: force);
-    _instance!.isRunning = false;
+    _server.close(force: force);
+    isRunning = false;
   }
 
   Future<bool> boardcast(WebSocketEvent event, DeviceType? deviceType) async {
-    if (_instance == null || !_instance!.isRunning) {
+    if (_instance == null || !isRunning) {
       return false;
     }
 
-    if (deviceType == null) {
-      _clients.values.forEach(
-        (client) {
-          client.socket.add(
-            event.toJson()
-          );
-        }
-      );
-
-      _logSink.add(
-        "Send boardcast to ${_clients.values.map((e) => e.id).join(", ")}"
-      );
-    } else {
-      _clients.values.where(
-        (e) => e.deviceType == deviceType
-      ).forEach(
-        (client) {
-          client.socket.add(
-            event.toJson()
-          );
-        }
-      );
-      _logSink.add(
-        "Send boardcast to ${_clients.values.where((e) => e.deviceType == deviceType).map((e) => e.id).join(", ")}"
-      );
-    }
+    List<WebSocketClient> boardcastTargets = _clients.values.where(
+      (e) => deviceType == null ? true : e.deviceType == deviceType
+    ).toList();
+    
+    boardcastTargets.forEach(
+      (client) {
+        client.socket.add(
+          event.toJson()
+        );
+      }
+    );
+    
+    _logSink.add(
+      "Send boardcast to ${boardcastTargets.map((e) => e.id).join(", ")}"
+    );
 
     return true;
   }
@@ -242,7 +232,7 @@ class WebSocketServer {
       case 4: {
         double now = DateTime.now().toMinutesSinceEpoch();
 
-        _instance!.boardcast(
+        boardcast(
           WebSocketEvent(
             opCode: 0,
             data: event.data,
@@ -251,7 +241,7 @@ class WebSocketServer {
           DeviceType.mobileApp
         );
 
-        if (_instance!._heartbeatBuffer.isNotEmpty && event.data["wf"] == 0.0) {
+        if (_heartbeatBuffer.isNotEmpty && event.data["wf"] == 0.0) {
           DatabaseHandler.instance.insertWaterRecord(
               now.floor(),
               _calcHeartbeatValue(now),
@@ -260,15 +250,15 @@ class WebSocketServer {
 
           _logSink.add("Insert record: (${now.floor()}, ${_calcHeartbeatValue(now)}, 0)");
 
-          _instance!._heartbeatBuffer.clear();
+          _heartbeatBuffer.clear();
           _heartbeatStartAt = now;
         }
 
         if (event.data["wf"] != 0.0) {
-          if (_instance!._heartbeatBuffer.isEmpty) {
+          if (_heartbeatBuffer.isEmpty) {
             _heartbeatStartAt = now;
           }
-          _instance!._heartbeatBuffer.add(event.data["wf"]);
+          _heartbeatBuffer.add(event.data["wf"]);
         }
       }
     }
