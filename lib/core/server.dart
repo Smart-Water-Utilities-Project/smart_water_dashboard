@@ -313,7 +313,7 @@ class WebSocketServer {
       return;
     }
 
-    List<WaterRecord> data = DatabaseHandler.instance.getRecord(int.parse(params["start"]!), int.parse(params["start"]!));
+    List<WaterRecord> data = DatabaseHandler.instance.getRecord(int.parse(params["start"]!), int.parse(params["end"]!));
     dynamic encodedData = data.map(
       (e) => {"t": e.timestamp, "wf": e.waterFlow, "wt": e.waterTemp}
     ).toList();
