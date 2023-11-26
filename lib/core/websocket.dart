@@ -159,7 +159,7 @@ class WebSocketServer {
       await runZonedGuarded(
         () async {
           _instance!._server = await HttpServer.bind(address, port);
-          _instance!._server.transform(WebSocketTransformer()).listen(_instance!._onRequest);
+          _instance!._server.listen(_instance!._onRequest);
           _instance!.isRunning = true;
           _instance!._heartbeatBuffer.clear();
           _instance!._waterDataHeartbeat();
@@ -211,6 +211,34 @@ class WebSocketServer {
     );
 
     return true;
+  }
+
+  void _onRequest(HttpRequest request) async {
+    switch (request.uri.path) {
+      case "/": {
+        request.response.write(
+          jsonEncode(
+            {
+              "Hello": "World"
+            }
+          )
+        );
+        request.response.close();
+      }
+      case "/ws": {
+        _handleSocket(request);
+      }
+      case "/history": {
+        _handleHistoryRequest(request);
+      }
+      default: {
+        request.response.statusCode = 404;
+        request.response.write("Not Found");
+        request.response.close();
+      }
+    }
+
+    _logSink.add("Incoming request: ${request.method} ${request.protocolVersion} ${request.uri}");
   }
 
   void _handleEvent(int socketId, dynamic rawEvent) async {
@@ -266,24 +294,59 @@ class WebSocketServer {
 
   void _handleDispatch(int socketId, WebSocketEvent event) {
     switch (event.eventName) {
-      case "REQUEST_HISTORY_DATA": {
-        List<WaterRecord> data = DatabaseHandler.instance.getRecord(event.data["s"], event.data["e"]);
-        dynamic encodedData = data.map(
-          (e) => {"t": e.timestamp, "wf": e.waterFlow, "wt": e.waterTemp}
-        ).toList();
-
-        _clients[socketId]?.socket.add(
-          WebSocketEvent(
-            opCode: 0,
-            data: encodedData,
-            eventName: "REQUEST_HISTORY_DATA_ACK"
-          ).toJson()
-        );
-      }
     }
   }
 
-  void _onRequest(WebSocket socket) async {
+  void _handleHistoryRequest(HttpRequest request) {
+    Map<String, String> params = request.uri.queryParameters;
+
+    if (!params.keys.contains("start") || !params.keys.contains("end")) {
+      request.response.statusCode = 400;
+      request.response.write(
+        jsonEncode(
+          {
+            "msg": "Missing parameters"
+          }
+        )
+      );
+      request.response.close();
+      return;
+    }
+
+    List<WaterRecord> data = DatabaseHandler.instance.getRecord(int.parse(params["start"]!), int.parse(params["start"]!));
+    dynamic encodedData = data.map(
+      (e) => {"t": e.timestamp, "wf": e.waterFlow, "wt": e.waterTemp}
+    ).toList();
+
+    request.response.write(
+      jsonEncode(encodedData)
+    );
+    request.response.close();
+  }
+
+  void _handleSocket(HttpRequest request) async {
+    WebSocket socket;
+
+    if (request.headers.value("Connection") != "upgrade") {
+      request.response.statusCode = 426;
+      request.response.write(
+        jsonEncode(
+          {
+            "msg": "Upgrade to WebSocket is required for this endpoint"
+          }
+        )
+      );
+      request.response.close();
+    }
+
+    try {
+      socket = await WebSocketTransformer.upgrade(request);
+    } catch (e) {
+      _logSink.add("Invalid WebSocket upgrade request");
+
+      return;
+    }
+
     if (!_clients.containsKey(socket.hashCode)) {
       _clients[socket.hashCode] = WebSocketClient(
         id: socket.hashCode,
