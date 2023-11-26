@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:smart_water_dashboard/core/websocket.dart';
+import 'package:smart_water_dashboard/core/server.dart';
 
 class ServerLogPage extends StatefulWidget {
   const ServerLogPage({super.key});

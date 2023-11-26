@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:smart_water_dashboard/core/database.dart';
-import 'package:smart_water_dashboard/core/websocket.dart';
+import 'package:smart_water_dashboard/core/server.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:smart_water_dashboard/core/database.dart';
-import 'package:smart_water_dashboard/core/websocket.dart';
+import 'package:smart_water_dashboard/core/server.dart';
 import 'package:smart_water_dashboard/page/data_chart.dart';
 import 'package:smart_water_dashboard/page/database_view.dart';
 import 'package:smart_water_dashboard/page/server_log.dart';
