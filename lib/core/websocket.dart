@@ -327,7 +327,7 @@ class WebSocketServer {
   void _handleSocket(HttpRequest request) async {
     WebSocket socket;
 
-    if (request.headers.value("Connection") != "upgrade") {
+    if (request.headers.value("Connection")?.toLowerCase() != "upgrade") {
       request.response.statusCode = 426;
       request.response.write(
         jsonEncode(
