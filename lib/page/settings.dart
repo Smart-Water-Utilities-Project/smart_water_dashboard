@@ -1,8 +1,6 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:secure_shared_preferences/secure_shared_pref.dart';
 import 'package:smart_water_dashboard/core/database.dart';
 import 'package:smart_water_dashboard/core/server.dart';
 
@@ -14,22 +12,17 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  late TextEditingController _serverIpInputController;
-  late TextEditingController _serverPortInputController;
-  late TextEditingController _fcmServerkeyInputController;
-  late SharedPreferences _sharedPref;
-  late SecureSharedPref _secureSharedPref;
+  late final TextEditingController _serverIpInputController;
+  late final TextEditingController _serverPortInputController;
+  late final TextEditingController _fcmServerkeyInputController;
+  late final SharedPreferences _sharedPref;
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   void _initSharedPref() async {
     _sharedPref = await SharedPreferences.getInstance();
-    _secureSharedPref = await SecureSharedPref.getInstance();
     _serverIpInputController.text = _sharedPref.getString("serverIp") ?? "127.0.0.1";
     _serverPortInputController.text = _sharedPref.getString("serverPort") ?? "5678";
-    if (Platform.isMacOS) {
-      _fcmServerkeyInputController.text = _sharedPref.getString("fcmServerKey") ?? "";
-    } else {
-      _fcmServerkeyInputController.text = (await _secureSharedPref.getString("fcmServerKey", isEncrypted: true)) ?? "";
-    }
+    _fcmServerkeyInputController.text = await _secureStorage.read(key: "fcmServerKey") ?? "";
   }
 
   @override
@@ -188,11 +181,10 @@ class _SettingsPageState extends State<SettingsPage> {
               const SizedBox(width: 22,),
               FilledButton(
                 onPressed: () async {
-                  if (Platform.isMacOS) {
-                    _sharedPref.setString("fcmServerKey", _fcmServerkeyInputController.text);
-                  } else {
-                    await _secureSharedPref.putString("fcmServerKey", _fcmServerkeyInputController.text, isEncrypted: true);
-                  }
+                  await _secureStorage.write(
+                    key: "fcmServerKey",
+                    value: _fcmServerkeyInputController.text
+                  );
                   if (!mounted) return;
                   showDialog(
                     context: context,

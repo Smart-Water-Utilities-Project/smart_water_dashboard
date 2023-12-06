@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:smart_water_dashboard/core/cloud_messaging.dart';
 import 'package:smart_water_dashboard/core/database.dart';
 import 'package:smart_water_dashboard/core/server.dart';
 import 'package:smart_water_dashboard/page/data_chart.dart';
@@ -13,7 +12,6 @@ void main() async {
   await WebServer.serve(
     "127.0.0.1", 5678,
   );
-  await CloudMessaging.init();
   await DatabaseHandler.init();
   runApp(const MainApp());
 }
