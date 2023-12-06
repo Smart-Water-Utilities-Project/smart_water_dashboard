@@ -37,6 +37,8 @@ dependencies:
   uuid: ^4.1.0
   syncfusion_flutter_charts: ^23.1.44
   path_provider: ^2.1.1
+  shared_preferences: ^2.2.2
+  secure_shared_preferences: ^0.0.4
 
 dev_dependencies:
   flutter_test:
