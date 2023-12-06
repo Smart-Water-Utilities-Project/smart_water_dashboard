@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_water_dashboard/core/database.dart';
 import 'package:smart_water_dashboard/core/extension.dart';
 
@@ -70,6 +72,8 @@ class WebSocketServer {
 
   static WebSocketServer? _instance;
 
+  late SharedPreferences _sharedPrefs;
+
   late HttpServer _server;
   bool isRunning = false;
   final HashMap<int, WebSocketClient> _clients = HashMap();
@@ -77,6 +81,9 @@ class WebSocketServer {
   final List<double> _heartbeatBuffer = [];
   double _heartbeatStartAt = DateTime.now().toMinutesSinceEpoch();
   late Timer _heartbeatTimer;
+
+  double _lastWaterTemp = -1;
+  double _lastWaterDist = -1;
 
   late StreamController<dynamic> _dataController;
   StreamSink<dynamic> get _dataSink => _dataController.sink;
@@ -90,11 +97,7 @@ class WebSocketServer {
   static Stream<String> get log => _logController.stream;
 
   static WebSocketServer get instance {
-    if (_instance == null) {
-      _instance = WebSocketServer._();
-      _instance!.isRunning = false;
-      _instance!._heartbeatBuffer.clear();
-    }
+    _instance ??= WebSocketServer._();
     return _instance!;
   }
 
@@ -110,7 +113,9 @@ class WebSocketServer {
           t.cancel();
         }
 
-        List<WebSocketClient> sensors = _clients.values.where((e) => e.deviceType == DeviceType.sensor).toList();
+        List<WebSocketClient> sensors = _clients.values.where(
+          (e) => e.deviceType == DeviceType.sensor
+        ).toList();
 
         sensors.forEach(
           (client) {
@@ -131,15 +136,18 @@ class WebSocketServer {
         double now = DateTime.now().toMinutesSinceEpoch();
 
         if (now - _heartbeatStartAt >= 15 * 60 * 1000) {
-          if (_heartbeatBuffer.isNotEmpty) {
-            DatabaseHandler.instance.insertWaterRecord(
-                now.floor(),
-                _calcHeartbeatValue(now),
-                0
-            );
+          double heartbeatValue = _calcHeartbeatValue(now);
 
-            _logSink.add("Insert record: (${now.floor()}, ${_calcHeartbeatValue(now)}, 0)");
-          }
+          DatabaseHandler.instance.insertWaterRecord(
+              now.floor(),
+              heartbeatValue,
+              _lastWaterTemp,
+              _lastWaterDist
+          );
+
+          _logSink.add(
+            "Insert record: (${now.floor()}, $heartbeatValue, $_lastWaterTemp, $_lastWaterDist)"
+          );
 
           _logSink.add("Clear buffer for 15 min heartbeat");
 
@@ -155,6 +163,8 @@ class WebSocketServer {
       _instance = WebSocketServer._();
       _instance!._dataController = StreamController<dynamic>();
       _instance!._errorController = StreamController<dynamic>();
+
+      _instance!._sharedPrefs = await SharedPreferences.getInstance();
 
       await runZonedGuarded(
         () async {
@@ -231,6 +241,15 @@ class WebSocketServer {
       case "/history": {
         _handleHistoryRequest(request);
       }
+      case "/waterDistTarget": {
+        _handleWaterDistTargetRequest(request);
+      }
+      case "/waterLimit": {
+        _handleWaterLimitRequest(request);
+      }
+      case "/waterValve": {
+        _handleValveRequest(request);
+      }
       default: {
         request.response.statusCode = 404;
         request.response.write("Not Found");
@@ -239,89 +258,6 @@ class WebSocketServer {
     }
 
     _logSink.add("Incoming request: ${request.method} ${request.protocolVersion} ${request.uri}");
-  }
-
-  void _handleEvent(int socketId, dynamic rawEvent) async {
-    WebSocketEvent event = WebSocketEvent.fromJson(rawEvent);
-
-    _logSink.add("Socket event incoming: $rawEvent");
-
-    switch (event.opCode) {
-      case 0: {
-        _handleDispatch(socketId, event);
-
-        _logSink.add("Recivied dispatch: ($socketId, ${event.eventName})");
-      }
-      case 2: {
-        _clients[socketId]!.deviceType = DeviceType.fromString(event.data["dt"]);
-
-        _logSink.add("Set device type: ($socketId, ${DeviceType.fromString(event.data["dt"])})");
-      }
-      case 4: {
-        double now = DateTime.now().toMinutesSinceEpoch();
-
-        boardcast(
-          WebSocketEvent(
-            opCode: 0,
-            data: event.data,
-            eventName: "SENSOR_DATA_FORWARD"
-          ),
-          DeviceType.mobileApp
-        );
-
-        if (_heartbeatBuffer.isNotEmpty && event.data["wf"] == 0.0) {
-          DatabaseHandler.instance.insertWaterRecord(
-              now.floor(),
-              _calcHeartbeatValue(now),
-              0
-          );
-
-          _logSink.add("Insert record: (${now.floor()}, ${_calcHeartbeatValue(now)}, 0)");
-
-          _heartbeatBuffer.clear();
-          _heartbeatStartAt = now;
-        }
-
-        if (event.data["wf"] != 0.0) {
-          if (_heartbeatBuffer.isEmpty) {
-            _heartbeatStartAt = now;
-          }
-          _heartbeatBuffer.add(event.data["wf"]);
-        }
-      }
-    }
-  }
-
-  void _handleDispatch(int socketId, WebSocketEvent event) {
-    switch (event.eventName) {
-    }
-  }
-
-  void _handleHistoryRequest(HttpRequest request) {
-    Map<String, String> params = request.uri.queryParameters;
-
-    if (!params.keys.contains("start") || !params.keys.contains("end")) {
-      request.response.statusCode = 400;
-      request.response.write(
-        jsonEncode(
-          {
-            "msg": "Missing parameters"
-          }
-        )
-      );
-      request.response.close();
-      return;
-    }
-
-    List<WaterRecord> data = DatabaseHandler.instance.getRecord(int.parse(params["start"]!), int.parse(params["end"]!));
-    dynamic encodedData = data.map(
-      (e) => {"t": e.timestamp, "wf": e.waterFlow, "wt": e.waterTemp}
-    ).toList();
-
-    request.response.write(
-      jsonEncode(encodedData)
-    );
-    request.response.close();
   }
 
   void _handleSocket(HttpRequest request) async {
@@ -377,7 +313,7 @@ class WebSocketServer {
         }
         try {
           data = jsonDecode(data);
-          _handleEvent(socket.hashCode, data);
+          _handleSocketEvent(socket.hashCode, data);
           _dataSink.add(data);
         } on Exception catch (_) {
           _dataSink.add(data);
@@ -392,5 +328,281 @@ class WebSocketServer {
         _logSink.add("Device disconnected: ${socket.hashCode}");
       }
     );
+  }
+
+  void _handleSocketEvent(int socketId, dynamic rawEvent) async {
+    WebSocketEvent event = WebSocketEvent.fromJson(rawEvent);
+
+    _logSink.add("Socket event incoming: $rawEvent");
+
+    switch (event.opCode) {
+      case 0: {
+        _handleSocketDispatch(socketId, event);
+
+        _logSink.add("Recivied dispatch: ($socketId, ${event.eventName})");
+      }
+      case 2: {
+        _clients[socketId]!.deviceType = DeviceType.fromString(event.data["dt"]);
+
+        _logSink.add("Set device type: ($socketId, ${DeviceType.fromString(event.data["dt"])})");
+      }
+      case 4: {
+        double now = DateTime.now().toMinutesSinceEpoch();
+
+        _lastWaterTemp = event.data["wt"];
+        _lastWaterDist = event.data["wd"];
+
+        boardcast(
+          WebSocketEvent(
+            opCode: 0,
+            data: event.data,
+            eventName: "SENSOR_DATA_FORWARD"
+          ),
+          DeviceType.mobileApp
+        );
+
+        if (_heartbeatBuffer.isNotEmpty && event.data["wf"] == 0.0) {
+          double heartbeatValue = _calcHeartbeatValue(now);
+
+          DatabaseHandler.instance.insertWaterRecord(
+              now.floor(),
+              heartbeatValue,
+              event.data["wt"],
+              event.data["wd"]
+          );
+
+          _logSink.add(
+            "Insert record: (${now.floor()}, $heartbeatValue, $_lastWaterTemp, $_lastWaterDist)"
+          );
+
+          _heartbeatBuffer.clear();
+          _heartbeatStartAt = now;
+        }
+
+        if (event.data["wf"] != 0.0) {
+          if (_heartbeatBuffer.isEmpty) {
+            _heartbeatStartAt = now;
+          }
+          _heartbeatBuffer.add(event.data["wf"]);
+        }
+      }
+    }
+  }
+
+  void _handleSocketDispatch(int socketId, WebSocketEvent event) {
+    switch (event.eventName) {
+    }
+  }
+
+  void _handleHistoryRequest(HttpRequest request) {
+    Map<String, String> params = request.uri.queryParameters;
+
+    if (!params.keys.contains("start") || !params.keys.contains("end")) {
+      request.response.statusCode = 400;
+      request.response.write(
+        jsonEncode(
+          {
+            "msg": "Missing parameters"
+          }
+        )
+      );
+      request.response.close();
+      return;
+    }
+
+    List<WaterRecord> data = DatabaseHandler.instance.getRecord(
+      int.parse(params["start"]!), int.parse(params["end"]!)
+    );
+    dynamic encodedData = data.map(
+      (e) => {"t": e.timestamp, "wf": e.waterFlow, "wt": e.waterTemp, "wd": e.waterDist}
+    ).toList();
+
+    request.response.write(
+      jsonEncode(encodedData)
+    );
+    request.response.close();
+  }
+
+  void _handleWaterDistTargetRequest(HttpRequest request) async {
+    if (request.method == "GET") {
+      request.response.write(
+        jsonEncode(
+          {
+            "target": _sharedPrefs.getDouble("waterDistTarget") ?? -1
+          }
+        )
+      );
+      request.response.close();
+      return;
+    }
+
+    if (request.method != "PUT") {
+      request.response.statusCode = 405;
+      request.response.write(
+        jsonEncode(
+          {
+            "msg": "This endpoint only support GET or PUT"
+          }
+        )
+      );
+      request.response.close();
+      return;
+    }
+
+    String body = await request.body();
+
+    if (body.isEmpty) {
+      request.response.statusCode = 400;
+      request.response.write(
+        jsonEncode(
+          {
+            "msg": "Request body can't be empty"
+          }
+        )
+      );
+      request.response.close();
+      return;
+    }
+    
+    dynamic jsonBody = jsonDecode(body);
+
+    if (jsonBody case {"target": double target}) {
+      _sharedPrefs.setDouble("waterDistTarget", target);
+
+      request.response.close();
+      return;
+    }
+
+    request.response.statusCode = 400;
+    request.response.write(
+      jsonEncode(
+        {
+          "msg": "Body pattern error"
+        }
+      )
+    );
+    request.response.close();
+  }
+
+  void _handleWaterLimitRequest(HttpRequest request) async {
+    if (request.method == "GET") {
+      request.response.write(
+        jsonEncode(
+          {
+            "limit": _sharedPrefs.getInt("waterLimit") ?? -1
+          }
+        )
+      );
+      request.response.close();
+      return;
+    }
+
+    if (request.method != "PUT") {
+      request.response.statusCode = 405;
+      request.response.write(
+        jsonEncode(
+          {
+            "msg": "This endpoint only support GET or PUT"
+          }
+        )
+      );
+      request.response.close();
+      return;
+    }
+
+    String body = await request.body();
+
+    if (body.isEmpty) {
+      request.response.statusCode = 400;
+      request.response.write(
+        jsonEncode(
+          {
+            "msg": "Request body can't be empty"
+          }
+        )
+      );
+      request.response.close();
+      return;
+    }
+    
+    dynamic jsonBody = jsonDecode(body);
+
+    if (jsonBody case {"limit": int limit}) {
+      _sharedPrefs.setInt("waterLimit", limit);
+
+      request.response.close();
+      return;
+    }
+
+    request.response.statusCode = 400;
+    request.response.write(
+      jsonEncode(
+        {
+          "msg": "Body pattern error"
+        }
+      )
+    );
+    request.response.close();
+  }
+
+  void _handleValveRequest(HttpRequest request) async {
+    if (request.method == "GET") {
+      request.response.write(
+        jsonEncode(
+          {
+            "status": _sharedPrefs.getBool("waterValve") ?? false
+          }
+        )
+      );
+      request.response.close();
+      return;
+    }
+
+    if (request.method != "PUT") {
+      request.response.statusCode = 405;
+      request.response.write(
+        jsonEncode(
+          {
+            "msg": "This endpoint only support GET or PUT"
+          }
+        )
+      );
+      request.response.close();
+      return;
+    }
+
+    String body = await request.body();
+
+    if (body.isEmpty) {
+      request.response.statusCode = 400;
+      request.response.write(
+        jsonEncode(
+          {
+            "msg": "Request body can't be empty"
+          }
+        )
+      );
+      request.response.close();
+      return;
+    }
+    
+    dynamic jsonBody = jsonDecode(body);
+
+    if (jsonBody case {"status": bool status}) {
+      _sharedPrefs.setBool("waterValve", status);
+
+      request.response.close();
+      return;
+    }
+
+    request.response.statusCode = 400;
+    request.response.write(
+      jsonEncode(
+        {
+          "msg": "Body pattern error"
+        }
+      )
+    );
+    request.response.close();
   }
 }

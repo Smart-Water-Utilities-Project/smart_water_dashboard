@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 extension DateTimeConvert on DateTime {
   double toMinutesSinceEpoch() {
     return millisecondsSinceEpoch / (60 * 1000);
@@ -29,5 +32,18 @@ extension DoubleIterableUtil on Iterable<double> {
   double average() {
     if (isEmpty) return 0;
     return sum() / length;
+  }
+}
+
+extension HttpRequestUtil on HttpRequest {
+  Future<List<int>> rawBody() async {
+    return await expand((e) => e).toList();
+  }
+
+  Future<String> body({bool allowMalformed = true}) async {
+    return utf8.decode(
+      await expand((e) => e).toList(),
+      allowMalformed: allowMalformed
+    );
   }
 }

@@ -10,8 +10,15 @@ class WaterRecord {
   final int timestamp;
   final double waterFlow;
   final double waterTemp;
+  final double waterDist;
 
-  WaterRecord(this.id, this.timestamp, this.waterFlow, this.waterTemp);
+  WaterRecord(
+    this.id,
+    this.timestamp,
+    this.waterFlow,
+    this.waterTemp,
+    this.waterDist
+  );
 }
 
 class DatabaseHandler {
@@ -48,7 +55,8 @@ class DatabaseHandler {
           id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
           timestamp INTEGER NOT NULL,
           waterFlow REAL NOT NULL,
-          waterTemp REAL NOT NULL
+          waterTemp REAL NOT NULL,
+          waterDist REAL NOT NULL
         );
       """
     );
@@ -62,13 +70,18 @@ class DatabaseHandler {
     );
   }
 
-  void insertWaterRecord(int timestamp, double waterFlow, double waterTemp) {
+  void insertWaterRecord(
+    int timestamp,
+    double waterFlow,
+    double waterTemp,
+    double waterDist
+  ) {
     _instance!._database.execute(
       """
         INSERT INTO waterRecord (
-          timestamp, waterFlow, waterTemp
+          timestamp, waterFlow, waterTemp, waterDist
         ) VALUES (
-          '$timestamp', '$waterFlow', '$waterTemp'
+          '$timestamp', '$waterFlow', '$waterTemp', '$waterDist'
         )
       """
     );
@@ -104,7 +117,13 @@ class DatabaseHandler {
     query.forEach(
       (Row row) {
         result.add(
-          WaterRecord(row['id'], row['timestamp'], row['waterFlow'], row['waterTemp'])
+          WaterRecord(
+            row['id'],
+            row['timestamp'],
+            row['waterFlow'],
+            row['waterTemp'],
+            row['waterDist']
+          )
         );
       }
     );
@@ -127,7 +146,13 @@ class DatabaseHandler {
     query.forEach(
       (Row row) {
         result.add(
-          WaterRecord(row['id'], row['timestamp'], row['waterFlow'], row['waterTemp'])
+          WaterRecord(
+            row['id'],
+            row['timestamp'],
+            row['waterFlow'],
+            row['waterTemp'],
+            row['waterDist']
+          )
         );
       }
     );

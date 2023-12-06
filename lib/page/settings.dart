@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_water_dashboard/core/database.dart';
 import 'package:smart_water_dashboard/core/server.dart';
 
@@ -12,12 +13,20 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _serverIpInputController;
   late TextEditingController _serverPortInputController;
+  late SharedPreferences _sharedPref;
+
+  void _initSharedPref() async {
+    _sharedPref = await SharedPreferences.getInstance();
+    _serverIpInputController.text = _sharedPref.getString("serverIp") ?? "127.0.0.1";
+    _serverPortInputController.text = _sharedPref.getString("serverPort") ?? "5678";
+  }
 
   @override
   void initState() {
     super.initState();
     _serverIpInputController = TextEditingController(text: "127.0.0.1");
     _serverPortInputController = TextEditingController(text: "5678");
+    _initSharedPref();
   }
 
   @override
@@ -72,6 +81,10 @@ class _SettingsPageState extends State<SettingsPage> {
                     _serverIpInputController.text,
                     int.parse(_serverPortInputController.text)
                   );
+
+                  _sharedPref.setString("serverIp", _serverIpInputController.text);
+                  _sharedPref.setString("serverPort", _serverPortInputController.text);
+                  
                   showDialog(
                     context: context,
                     builder: (context) {
