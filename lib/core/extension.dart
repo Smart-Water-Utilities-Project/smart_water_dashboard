@@ -39,7 +39,9 @@ extension HttpRequestUtil on HttpRequest {
   Future<List<int>> rawBody() async {
     return await expand((e) => e).toList();
   }
+}
 
+extension HttpClientResponseUtil on HttpClientResponse {
   Future<String> body({bool allowMalformed = true}) async {
     return utf8.decode(
       await expand((e) => e).toList(),

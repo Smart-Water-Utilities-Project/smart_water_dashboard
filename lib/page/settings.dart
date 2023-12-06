@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:secure_shared_preferences/secure_shared_pref.dart';
 import 'package:smart_water_dashboard/core/database.dart';
 import 'package:smart_water_dashboard/core/server.dart';
 
@@ -13,12 +16,20 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _serverIpInputController;
   late TextEditingController _serverPortInputController;
+  late TextEditingController _fcmServerkeyInputController;
   late SharedPreferences _sharedPref;
+  late SecureSharedPref _secureSharedPref;
 
   void _initSharedPref() async {
     _sharedPref = await SharedPreferences.getInstance();
+    _secureSharedPref = await SecureSharedPref.getInstance();
     _serverIpInputController.text = _sharedPref.getString("serverIp") ?? "127.0.0.1";
     _serverPortInputController.text = _sharedPref.getString("serverPort") ?? "5678";
+    if (Platform.isMacOS) {
+      _fcmServerkeyInputController.text = _sharedPref.getString("fcmServerKey") ?? "";
+    } else {
+      _fcmServerkeyInputController.text = (await _secureSharedPref.getString("fcmServerKey", isEncrypted: true)) ?? "";
+    }
   }
 
   @override
@@ -26,6 +37,7 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _serverIpInputController = TextEditingController(text: "127.0.0.1");
     _serverPortInputController = TextEditingController(text: "5678");
+    _fcmServerkeyInputController = TextEditingController(text: "");
     _initSharedPref();
   }
 
@@ -148,6 +160,60 @@ class _SettingsPageState extends State<SettingsPage> {
               );
             },
             child: const Text("Comfirm"),
+          ),
+          const SizedBox(height: 30,),
+          const Text(
+            "更改 FCM Server Key",
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold
+            ),
+          ),
+          Row(
+            children: [
+              SizedBox(
+                width: 140,
+                child: TextField(
+                  controller: _fcmServerkeyInputController,
+                  keyboardType: TextInputType.text,
+                  maxLines: 1,
+                  maxLength: 200,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    hintText: "AADA...23D",
+                    label: Text("Server Key")
+                  ),
+                ),
+              ),
+              const SizedBox(width: 22,),
+              FilledButton(
+                onPressed: () async {
+                  if (Platform.isMacOS) {
+                    _sharedPref.setString("fcmServerKey", _fcmServerkeyInputController.text);
+                  } else {
+                    await _secureSharedPref.putString("fcmServerKey", _fcmServerkeyInputController.text, isEncrypted: true);
+                  }
+                  if (!mounted) return;
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      return AlertDialog(
+                        title: const Text("已更新 Server Key"),
+                        actions: [
+                          TextButton(
+                            child: const Text('OK'),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+                child: const Text("Apply"),
+              )
+            ],
           )
         ],
       ),

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:smart_water_dashboard/core/cloud_messaging.dart';
 import 'package:smart_water_dashboard/core/database.dart';
 import 'package:smart_water_dashboard/core/server.dart';
 import 'package:smart_water_dashboard/page/data_chart.dart';
 import 'package:smart_water_dashboard/page/database_view.dart';
-import 'package:smart_water_dashboard/page/server_log.dart';
+import 'package:smart_water_dashboard/page/event_log.dart';
 import 'package:smart_water_dashboard/page/settings.dart';
 
 
@@ -12,6 +13,7 @@ void main() async {
   await WebSocketServer.serve(
     "127.0.0.1", 5678,
   );
+  await CloudMessaging.init();
   await DatabaseHandler.init();
   runApp(const MainApp());
 }
@@ -79,7 +81,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 NavigationRailDestination(
                   icon: Icon(Icons.text_snippet_rounded),
-                  label: Text("Server Log")
+                  label: Text("Event Log")
                 ),
                 NavigationRailDestination(
                   icon: Icon(Icons.settings_rounded),
@@ -95,7 +97,7 @@ class _HomePageState extends State<HomePage> {
                   children: const [
                     DataChartPage(),
                     DatabaseViewPage(),
-                    ServerLogPage(),
+                    EventLogPage(),
                     SettingsPage()
                   ],
                 ),
