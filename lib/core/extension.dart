@@ -36,8 +36,11 @@ extension DoubleIterableUtil on Iterable<double> {
 }
 
 extension HttpRequestUtil on HttpRequest {
-  Future<List<int>> rawBody() async {
-    return await expand((e) => e).toList();
+  Future<String> body({bool allowMalformed = true}) async {
+    return utf8.decode(
+      await expand((e) => e).toList(),
+      allowMalformed: allowMalformed
+    );
   }
 }
 

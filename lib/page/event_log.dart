@@ -34,7 +34,7 @@ class _EventLogPageState extends State<EventLogPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: StreamBuilder(
-        stream: WebSocketServer.log,
+        stream: WebServer.log,
         builder: (context, serverSnapshot) {
           return StreamBuilder(
             stream: CloudMessaging.log,
@@ -48,10 +48,10 @@ class _EventLogPageState extends State<EventLogPage> {
               if (serverSnapshot.data! == _previousLog) {
                 _duplicateCount += 1;
                 _logging.removeLast();
-                _logging.add("[$timestamp] [Server] (${_duplicateCount + 1}) ${serverSnapshot.data!}");
+                _logging.add("[$timestamp] [WebServer] (${_duplicateCount + 1}) ${serverSnapshot.data!}");
               } else {
                 _duplicateCount = 0;
-                _logging.add("[$timestamp] [Server] ${serverSnapshot.data!}");
+                _logging.add("[$timestamp] [WebServer] ${serverSnapshot.data!}");
                 _previousLog = serverSnapshot.data!;
               }
 

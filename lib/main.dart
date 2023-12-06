@@ -10,7 +10,7 @@ import 'package:smart_water_dashboard/page/settings.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await WebSocketServer.serve(
+  await WebServer.serve(
     "127.0.0.1", 5678,
   );
   await CloudMessaging.init();

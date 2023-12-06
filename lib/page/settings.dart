@@ -88,8 +88,8 @@ class _SettingsPageState extends State<SettingsPage> {
               const SizedBox(width: 22,),
               FilledButton(
                 onPressed: () {
-                  WebSocketServer.instance.close();
-                  WebSocketServer.serve(
+                  WebServer.instance.close();
+                  WebServer.serve(
                     _serverIpInputController.text,
                     int.parse(_serverPortInputController.text)
                   );
@@ -144,10 +144,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       TextButton(
                         child: const Text('Comfirm'),
                         onPressed: () {
-                          WebSocketServer.instance.close();
+                          WebServer.instance.close();
                           DatabaseHandler.instance.dropTable();
                           DatabaseHandler.instance.createTable();
-                          WebSocketServer.serve(
+                          WebServer.serve(
                             _serverIpInputController.text,
                             int.parse(_serverPortInputController.text)
                           );

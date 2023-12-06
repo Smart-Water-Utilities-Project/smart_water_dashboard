@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_water_dashboard/core/database.dart';
@@ -67,10 +66,10 @@ class WebSocketEvent {
   }
 }
 
-class WebSocketServer {
-  WebSocketServer._();
+class WebServer {
+  WebServer._();
 
-  static WebSocketServer? _instance;
+  static WebServer? _instance;
 
   late SharedPreferences _sharedPrefs;
 
@@ -96,8 +95,8 @@ class WebSocketServer {
   Stream<dynamic> get error => _errorController.stream;
   static Stream<String> get log => _logController.stream;
 
-  static WebSocketServer get instance {
-    _instance ??= WebSocketServer._();
+  static WebServer get instance {
+    _instance ??= WebServer._();
     return _instance!;
   }
 
@@ -158,9 +157,9 @@ class WebSocketServer {
     );
   }
 
-  static Future<WebSocketServer> serve(dynamic address, int port) async {
+  static Future<WebServer> serve(dynamic address, int port) async {
     if (_instance == null || !_instance!.isRunning) {
-      _instance = WebSocketServer._();
+      _instance = WebServer._();
       _instance!._dataController = StreamController<dynamic>();
       _instance!._errorController = StreamController<dynamic>();
 
