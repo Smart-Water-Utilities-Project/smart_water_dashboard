@@ -90,6 +90,15 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
                   ),
                 ),
               ),
+              Expanded(
+                child: Text(
+                  "Water Temp",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16
+                  ),
+                ),
+              ),
               SizedBox(
                 width: 26,
                 height: 26,
@@ -215,6 +224,14 @@ class RowItem extends StatelessWidget {
         Expanded(
           child: Text(
             data.waterTemp.toStringAsFixed(3),
+            style: TextStyle(
+              fontFamily: _getFontFamily()
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            data.waterDist.toStringAsFixed(3),
             style: TextStyle(
               fontFamily: _getFontFamily()
             ),
