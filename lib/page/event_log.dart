@@ -39,30 +39,30 @@ class _EventLogPageState extends State<EventLogPage> {
           return StreamBuilder(
             stream: CloudMessaging.log,
             builder: (context, cloudMessagingSnapshot) {
-              if (!serverSnapshot.hasData && !cloudMessagingSnapshot.hasData) {
-                return const Center(child: CircularProgressIndicator(),);
-              }
-
               String timestamp = DateTime.now().toIso8601String().substring(0, 19).replaceAll("T", " ");
 
-              if (serverSnapshot.data! == _previousLog) {
-                _duplicateCount += 1;
-                _logging.removeLast();
-                _logging.add("[$timestamp] [WebServer] (${_duplicateCount + 1}) ${serverSnapshot.data!}");
-              } else {
-                _duplicateCount = 0;
-                _logging.add("[$timestamp] [WebServer] ${serverSnapshot.data!}");
-                _previousLog = serverSnapshot.data!;
+              if (serverSnapshot.hasData) {
+                if (serverSnapshot.data! == _previousLog) {
+                  _duplicateCount += 1;
+                  _logging.removeLast();
+                  _logging.add("[$timestamp] [WebServer] (${_duplicateCount + 1}) ${serverSnapshot.data!}");
+                } else {
+                  _duplicateCount = 0;
+                  _logging.add("[$timestamp] [WebServer] ${serverSnapshot.data!}");
+                  _previousLog = serverSnapshot.data!;
+                }
               }
 
-              if (cloudMessagingSnapshot.data! == _previousLog) {
-                _duplicateCount += 1;
-                _logging.removeLast();
-                _logging.add("[$timestamp] [CloudMessaging] (${_duplicateCount + 1}) ${cloudMessagingSnapshot.data!}");
-              } else {
-                _duplicateCount = 0;
-                _logging.add("[$timestamp] [CloudMessaging] ${cloudMessagingSnapshot.data!}");
-                _previousLog = cloudMessagingSnapshot.data!;
+              if (cloudMessagingSnapshot.hasData) {
+                if (cloudMessagingSnapshot.data! == _previousLog) {
+                  _duplicateCount += 1;
+                  _logging.removeLast();
+                  _logging.add("[$timestamp] [CloudMessaging] (${_duplicateCount + 1}) ${cloudMessagingSnapshot.data!}");
+                } else {
+                  _duplicateCount = 0;
+                  _logging.add("[$timestamp] [CloudMessaging] ${cloudMessagingSnapshot.data!}");
+                  _previousLog = cloudMessagingSnapshot.data!;
+                }
               }
 
               return ListView(

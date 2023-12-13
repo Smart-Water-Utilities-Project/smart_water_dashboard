@@ -38,7 +38,7 @@ dependencies:
   syncfusion_flutter_charts: ^23.1.44
   path_provider: ^2.1.1
   shared_preferences: ^2.2.2
-  secure_shared_preferences: ^0.0.4
+  flutter_secure_storage: ^9.0.0
 
 dev_dependencies:
   flutter_test:
@@ -56,7 +56,6 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
