@@ -262,6 +262,9 @@ class WebServer {
       case "/waterValve": {
         _handleValveRequest(request);
       }
+      case "/notifySettings": {
+        _handleNotifySettingsRequest(request);
+      }
       default: {
         request.response.statusCode = 404;
         request.response.write(
@@ -485,6 +488,8 @@ class WebServer {
     dynamic jsonBody = jsonDecode(body);
 
     if (jsonBody case {"target": double target}) {
+      request.response.statusCode = 204;
+      
       await _sharedPrefs.put("waterDistTarget", target);
 
       request.response.close();
@@ -546,6 +551,8 @@ class WebServer {
     dynamic jsonBody = jsonDecode(body);
 
     if (jsonBody case {"limit": int limit}) {
+      request.response.statusCode = 204;
+
       await _sharedPrefs.put("waterLimit", limit);
 
       request.response.close();
@@ -608,6 +615,8 @@ class WebServer {
     dynamic jsonBody = jsonDecode(body);
 
     if (jsonBody case {"status": bool status}) {
+      request.response.statusCode = 204;
+
       await _sharedPrefs.put("waterValve", status);
 
       request.response.close();
@@ -622,6 +631,63 @@ class WebServer {
         }
       )
     );
+    request.response.close();
+  }
+
+  void _handleNotifySettingsRequest(HttpRequest request) async {
+    if (request.method == "GET") {
+      request.response.write(
+        jsonEncode(
+          {
+            "pipe_freeze": _sharedPrefs.get("pipeFreezeNotify", defaultValue: true),
+            "water_leakage": _sharedPrefs.get("waterLeakageNotify", defaultValue: true),
+            "daily_water_usage_limit": _sharedPrefs.get("dailyWaterUsageLimitNotify", defaultValue: true),
+          }
+        )
+      );
+
+      request.response.close();
+      return;
+    }
+
+    if (request.method != "PUT") {
+      request.response.statusCode = 405;
+      request.response.write(
+        jsonEncode(
+          {
+            "msg": "This endpoint only support GET or PUT"
+          }
+        )
+      );
+      request.response.close();
+      return;
+    }
+
+    String body = await request.body();
+
+    if (body.isEmpty) {
+      request.response.statusCode = 204;
+
+      request.response.close();
+      return;
+    }
+    
+    dynamic jsonBody = jsonDecode(body);
+
+    await _sharedPrefs.put(
+      "pipeFreezeNotify",
+      jsonBody["pipe_freeze"] ?? _sharedPrefs.get("pipeFreezeNotify", defaultValue: true)
+    );
+    await _sharedPrefs.put(
+      "waterLeakageNotify",
+      jsonBody["water_leakage"] ?? _sharedPrefs.get("waterLeakageNotify", defaultValue: true)
+    );
+    await _sharedPrefs.put(
+      "dailyWaterUsageLimitNotify",
+      jsonBody["daily_water_usage_limit"] ?? _sharedPrefs.get("dailyWaterUsageLimitNotify", defaultValue: true)
+    );
+
+    request.response.statusCode = 204;
     request.response.close();
   }
 }
