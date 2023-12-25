@@ -1,5 +1,8 @@
-import 'dart:convert';
-import 'dart:io';
+import "dart:convert";
+import "dart:io";
+
+import "package:flutter/material.dart";
+
 
 extension DateTimeConvert on DateTime {
   double toMinutesSinceEpoch() {
@@ -8,6 +11,10 @@ extension DateTimeConvert on DateTime {
 
   int toSecondsSinceEpoch() {
     return (millisecondsSinceEpoch / 1000).floor();
+  }
+
+  DateTime applied(TimeOfDay time) {
+    return DateTime(year, month, day, time.hour, time.minute);
   }
 }
 

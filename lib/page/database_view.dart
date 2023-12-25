@@ -1,8 +1,13 @@
-import 'dart:async';
-import 'dart:io';
+import "dart:async";
+import "dart:io";
 
-import 'package:flutter/material.dart';
-import 'package:smart_water_dashboard/core/database.dart';
+import "package:flutter/material.dart";
+
+import "package:intl/intl.dart";
+
+import "package:smart_water_dashboard/core/database.dart";
+import "package:smart_water_dashboard/core/extension.dart";
+
 
 class DatabaseViewPage extends StatefulWidget {
   const DatabaseViewPage({super.key});
@@ -47,12 +52,12 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
     return Scaffold(
       body: Column(
         children: [
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.start,
             mainAxisSize: MainAxisSize.max,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              SizedBox(
+              const SizedBox(
                 width: 80,
                 child: Text(
                   "ID",
@@ -62,7 +67,7 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
                   ),
                 ),
               ),
-              SizedBox(
+              const SizedBox(
                 width: 160,
                 child: Text(
                   "Timestamp",
@@ -72,7 +77,7 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
                   ),
                 ),
               ),
-              Expanded(
+              const Expanded(
                 child: Text(
                   "Water Flow",
                   style: TextStyle(
@@ -81,7 +86,7 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
                   ),
                 ),
               ),
-              Expanded(
+              const Expanded(
                 child: Text(
                   "Water Temp",
                   style: TextStyle(
@@ -90,7 +95,7 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
                   ),
                 ),
               ),
-              Expanded(
+              const Expanded(
                 child: Text(
                   "Water Temp",
                   style: TextStyle(
@@ -102,12 +107,130 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
               SizedBox(
                 width: 26,
                 height: 26,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () async {
+                    DateTime recordAt = DateTime.now();
+                    TextEditingController dateInput = TextEditingController(
+                      text: DateFormat("yyyy/MM/dd").format(recordAt)
+                    );
+                    TextEditingController timeInput = TextEditingController(
+                      text: DateFormat("hh:mm").format(recordAt)
+                    );
+                    TextEditingController waterFlowInput = TextEditingController(text: "0.0");
+                    TextEditingController waterTempInput = TextEditingController(text: "0.0");
+                    TextEditingController waterDistInput = TextEditingController(text: "0.0");
+
+                    await showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text("Insert New Record"),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextField(
+                                controller: dateInput,
+                                readOnly: true,
+                                maxLines: 1,
+                                decoration: const InputDecoration(
+                                  label: Text("Record Date"),
+                                ),
+                                onTap: () async {
+                                  recordAt = await showDatePicker(
+                                    context: context,
+                                    firstDate: DateTime.fromMillisecondsSinceEpoch(0),
+                                    lastDate: DateTime.tryParse("2100-01-01")!
+                                  ) ?? DateTime.now();
+                                  dateInput.text = DateFormat("yyyy/MM/dd").format(recordAt);
+                                },
+                              ),
+                              TextField(
+                                controller: timeInput,
+                                readOnly: true,
+                                maxLines: 1,
+                                decoration: const InputDecoration(
+                                  label: Text("Record Time"),
+                                ),
+                                onTap: () async {
+                                  recordAt = recordAt.applied(
+                                    await showTimePicker(
+                                      context: context,
+                                      initialTime: TimeOfDay.now()
+                                    ) ?? TimeOfDay.now()
+                                  );
+                                  timeInput.text = DateFormat("hh:mm").format(recordAt);
+                                },
+                              ),
+                              TextField(
+                                controller: waterFlowInput,
+                                maxLines: 1,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(
+                                  label: Text("Water Flow"),
+                                ),
+                              ),
+                              TextField(
+                                controller: waterTempInput,
+                                maxLines: 1,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(
+                                  label: Text("Water Temp"),
+                                ),
+                              ),
+                              TextField(
+                                controller: waterDistInput,
+                                maxLines: 1,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(
+                                  label: Text("Water Dist"),
+                                ),
+                              ),
+                            ],
+                          ),
+                          actions: [
+                            OutlinedButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text("Cancel"),
+                            ),
+                            ElevatedButton(
+                              onPressed: () {
+                                DatabaseHandler.instance.insertWaterRecord(
+                                  recordAt.toMinutesSinceEpoch().floor(),
+                                  double.tryParse(waterFlowInput.text) ?? 0.0,
+                                  double.tryParse(waterTempInput.text) ?? 0.0,
+                                  double.tryParse(waterDistInput.text) ?? 0.0,
+                                );
+
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text("Insert"),
+                            )
+                          ],
+                        );
+                      }
+                    );
+
+                    dateInput.dispose();
+                    timeInput.dispose();
+                    waterFlowInput.dispose();
+                    waterTempInput.dispose();
+                    waterDistInput.dispose();
+                  },
+                  child: const Center(
+                    child: Icon(
+                      Icons.add_to_photos_rounded,
+                      size: 24,
+                    ),
+                  ),
+                ),
               )
             ],
           ),
           const Divider(
             thickness: 2,
-            color: Colors.black,
           ),
           Expanded(
             child: ListView.separated(
@@ -140,7 +263,6 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
                     _updateData();
                   });
                 },
-                disabledColor: Colors.black26,
                 icon: const Icon(
                   Icons.chevron_left_rounded,
                   size: 26,
@@ -159,7 +281,6 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
                     _updateData();
                   });
                 },
-                disabledColor: Colors.black26,
                 icon: const Icon(
                   Icons.chevron_right_rounded,
                   size: 26,

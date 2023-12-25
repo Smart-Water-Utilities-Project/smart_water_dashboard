@@ -1,9 +1,12 @@
-import 'dart:async';
+import "dart:async";
 
-import 'package:flutter/material.dart';
-import 'package:smart_water_dashboard/core/database.dart';
-import 'package:smart_water_dashboard/core/extension.dart';
-import 'package:syncfusion_flutter_charts/charts.dart';
+import "package:flutter/material.dart";
+
+import "package:syncfusion_flutter_charts/charts.dart";
+
+import "package:smart_water_dashboard/core/database.dart";
+import "package:smart_water_dashboard/core/extension.dart";
+
 
 class DataChartPage extends StatefulWidget {
   const DataChartPage({super.key});

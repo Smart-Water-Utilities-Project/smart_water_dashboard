@@ -1,8 +1,12 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:smart_water_dashboard/core/database.dart';
-import 'package:smart_water_dashboard/core/server.dart';
+import "package:flutter/material.dart";
+
+import "package:flutter_secure_storage/flutter_secure_storage.dart";
+import "package:hive_flutter/adapters.dart";
+
+import "package:smart_water_dashboard/core/cloud_messaging.dart";
+import "package:smart_water_dashboard/core/database.dart";
+import "package:smart_water_dashboard/core/server.dart";
+
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -15,22 +19,34 @@ class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController _serverIpInputController;
   late final TextEditingController _serverPortInputController;
   late final TextEditingController _fcmServerkeyInputController;
-  late final SharedPreferences _sharedPref;
+  late final TextEditingController _dailyWaterUsageLimitInputController;
+  late final TextEditingController _monthlyWaterUsageLimitInputController;
+  final Box _sharedPref = Hive.box("sharedPrefs");
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   void _initSharedPref() async {
-    _sharedPref = await SharedPreferences.getInstance();
-    _serverIpInputController.text = _sharedPref.getString("serverIp") ?? "127.0.0.1";
-    _serverPortInputController.text = _sharedPref.getString("serverPort") ?? "5678";
     _fcmServerkeyInputController.text = await _secureStorage.read(key: "fcmServerKey") ?? "";
   }
 
   @override
   void initState() {
     super.initState();
-    _serverIpInputController = TextEditingController(text: "127.0.0.1");
-    _serverPortInputController = TextEditingController(text: "5678");
+    _serverIpInputController = TextEditingController(
+      text: _sharedPref.get("serverIp", defaultValue: "127.0.0.1")
+    );
+    _serverPortInputController = TextEditingController(
+      text: _sharedPref.get("serverPort", defaultValue: "5678")
+    );
+
     _fcmServerkeyInputController = TextEditingController(text: "");
+
+    _dailyWaterUsageLimitInputController = TextEditingController(
+      text: _sharedPref.get("dailyWaterUsageLimit", defaultValue: -1).toString()
+    );
+    _monthlyWaterUsageLimitInputController = TextEditingController(
+      text: _sharedPref.get("monthlyWaterUsageLimit", defaultValue: -1).toString()
+    );
+
     _initSharedPref();
   }
 
@@ -38,10 +54,10 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 8,),
+          const Spacer(),
           const Text(
             "更改伺服器位址",
             style: TextStyle(
@@ -80,16 +96,17 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               const SizedBox(width: 22,),
               FilledButton(
-                onPressed: () {
-                  WebServer.instance.close();
-                  WebServer.serve(
+                onPressed: () async {
+                  await WebServer.instance.close();
+                  await WebServer.serve(
                     _serverIpInputController.text,
                     int.parse(_serverPortInputController.text)
                   );
 
-                  _sharedPref.setString("serverIp", _serverIpInputController.text);
-                  _sharedPref.setString("serverPort", _serverPortInputController.text);
+                  await _sharedPref.put("serverIp", _serverIpInputController.text);
+                  await _sharedPref.put("serverPort", _serverPortInputController.text);
                   
+                  if (!mounted) return;
                   showDialog(
                     context: context,
                     builder: (context) {
@@ -97,7 +114,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         title: const Text("已更新伺服器設定"),
                         actions: [
                           TextButton(
-                            child: const Text('OK'),
+                            child: const Text("OK"),
                             onPressed: () {
                               Navigator.of(context).pop();
                             },
@@ -107,11 +124,11 @@ class _SettingsPageState extends State<SettingsPage> {
                     },
                   );
                 },
-                child: const Text("Apply"),
+                child: const Text("Apply & Restart"),
               )
             ],
           ),
-          const SizedBox(height: 30,),
+          const Spacer(),
           const Text(
             "清空資料庫",
             style: TextStyle(
@@ -129,13 +146,13 @@ class _SettingsPageState extends State<SettingsPage> {
                     title: Text("確定要清除全部 ${DatabaseHandler.instance.getRowCount()} 筆資料嗎？"),
                     actions: [
                       TextButton(
-                        child: const Text('Cancel'),
+                        child: const Text("Cancel"),
                         onPressed: () {
                           Navigator.of(context).pop();
                         },
                       ),
                       TextButton(
-                        child: const Text('Comfirm'),
+                        child: const Text("Comfirm"),
                         onPressed: () {
                           WebServer.instance.close();
                           DatabaseHandler.instance.dropTable();
@@ -152,9 +169,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               );
             },
-            child: const Text("Comfirm"),
+            child: const Text("Drop Database"),
           ),
-          const SizedBox(height: 30,),
+          const Spacer(),
           const Text(
             "更改 FCM Server Key",
             style: TextStyle(
@@ -193,7 +210,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         title: const Text("已更新 Server Key"),
                         actions: [
                           TextButton(
-                            child: const Text('OK'),
+                            child: const Text("OK"),
                             onPressed: () {
                               Navigator.of(context).pop();
                             },
@@ -203,10 +220,117 @@ class _SettingsPageState extends State<SettingsPage> {
                     },
                   );
                 },
-                child: const Text("Apply"),
+                child: const Text("Apply & Save"),
               )
             ],
-          )
+          ),
+          const Spacer(),
+          const Text(
+            "發送測試通知",
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold
+            ),
+          ),
+          const SizedBox(height: 10,),
+          FilledButton(
+            onPressed: () async {
+              await CloudMessaging.send(
+                FcmTopic.devTest,
+                const FcmNotification(
+                  title: "Dev Test",
+                  body: "This is a test message"
+                ),
+                data: {"Hello": "World"}
+              );
+
+              if (!mounted) return;
+              showDialog(
+                context: context,
+                builder: (context) {
+                  return AlertDialog(
+                    title: const Text("已發送測試通知"),
+                    actions: [
+                      TextButton(
+                        child: const Text("OK"),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+            child: const Text("Send Notification"),
+          ),
+          const Spacer(),
+          const Text(
+            "更改用水上限",
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold
+            ),
+          ),
+          Row(
+            children: [
+              SizedBox(
+                width: 180,
+                child: TextField(
+                  controller: _dailyWaterUsageLimitInputController,
+                  keyboardType: TextInputType.number,
+                  maxLines: 1,
+                  decoration: const InputDecoration(
+                    label: Text("Daily Water Usage"),
+                    suffixText: "L"
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10,),
+              SizedBox(
+                width: 180,
+                child: TextField(
+                  controller: _monthlyWaterUsageLimitInputController,
+                  keyboardType: TextInputType.number,
+                  maxLines: 1,
+                  decoration: const InputDecoration(
+                    label: Text("Monthly Water Usage"),
+                    suffixText: "L"
+                  ),
+                ),
+              ),
+              const SizedBox(width: 22,),
+              FilledButton(
+                onPressed: () async {
+                  await _sharedPref.put("dailyWaterUsageLimit", int.tryParse(_dailyWaterUsageLimitInputController.text) ?? -1);
+                  await _sharedPref.put("monthlyWaterUsageLimit", int.tryParse(_monthlyWaterUsageLimitInputController.text) ?? -1);
+
+                  await _sharedPref.put("lastDailyWaterUsageNotifyAt", -1);
+                  await _sharedPref.put("lastMonthlyWaterUsageNotifyAt", -1);
+                  
+                  if (!mounted) return;
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      return AlertDialog(
+                        title: const Text("已儲存用水上限"),
+                        actions: [
+                          TextButton(
+                            child: const Text("OK"),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+                child: const Text("Apply & Save"),
+              ),
+            ],
+          ),
+          const Spacer(),
         ],
       ),
     );

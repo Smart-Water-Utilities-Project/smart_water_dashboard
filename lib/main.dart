@@ -1,18 +1,26 @@
-import 'package:flutter/material.dart';
-import 'package:smart_water_dashboard/core/database.dart';
-import 'package:smart_water_dashboard/core/server.dart';
-import 'package:smart_water_dashboard/page/data_chart.dart';
-import 'package:smart_water_dashboard/page/database_view.dart';
-import 'package:smart_water_dashboard/page/event_log.dart';
-import 'package:smart_water_dashboard/page/settings.dart';
+import "package:flutter/material.dart";
+
+import "package:hive_flutter/adapters.dart";
+
+import "package:smart_water_dashboard/core/database.dart";
+import "package:smart_water_dashboard/core/server.dart";
+import "package:smart_water_dashboard/page/data_chart.dart";
+import "package:smart_water_dashboard/page/database_view.dart";
+import "package:smart_water_dashboard/page/event_log.dart";
+import "package:smart_water_dashboard/page/settings.dart";
 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Hive.initFlutter();
+  await Hive.openBox("sharedPrefs");
+
+  await DatabaseHandler.init();
   await WebServer.serve(
     "127.0.0.1", 5678,
   );
-  await DatabaseHandler.init();
+
   runApp(const MainApp());
 }
 
@@ -21,12 +29,14 @@ class MainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Smart Water Dashboard',
+      title: "Smart Water Dashboard",
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF5266FF)
-        )
+          seedColor: const Color(0xFF5266FF),
+          brightness: Brightness.dark
+        ),
+        brightness: Brightness.dark
       ),
       debugShowCheckedModeBanner: false,
       home: const HomePage(),

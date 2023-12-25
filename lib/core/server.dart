@@ -1,11 +1,13 @@
-import 'dart:async';
-import 'dart:collection';
-import 'dart:convert';
-import 'dart:io';
+import "dart:async";
+import "dart:collection";
+import "dart:convert";
+import "dart:io";
 
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:smart_water_dashboard/core/database.dart';
-import 'package:smart_water_dashboard/core/extension.dart';
+import "package:hive_flutter/adapters.dart";
+
+import "package:smart_water_dashboard/core/cloud_messaging.dart";
+import "package:smart_water_dashboard/core/database.dart";
+import "package:smart_water_dashboard/core/extension.dart";
 
 
 enum DeviceType {
@@ -71,7 +73,7 @@ class WebServer {
 
   static WebServer? _instance;
 
-  late SharedPreferences _sharedPrefs;
+  final Box _sharedPrefs = Hive.box("sharedPrefs");
 
   late HttpServer _server;
   bool isRunning = false;
@@ -83,6 +85,8 @@ class WebServer {
 
   double _lastWaterTemp = -1;
   double _lastWaterDist = -1;
+
+  int _waterLeakageCount = 0;
 
   late StreamController<dynamic> _dataController;
   StreamSink<dynamic> get _dataSink => _dataController.sink;
@@ -107,7 +111,7 @@ class WebServer {
   Future<void> _waterDataHeartbeat() async {
     _heartbeatTimer = Timer.periodic(
       const Duration(seconds: 5),
-      (t) {
+      (t) async {
         if (_instance == null || !isRunning) {
           t.cancel();
         }
@@ -152,6 +156,27 @@ class WebServer {
 
           _heartbeatBuffer.clear();
           _heartbeatStartAt = now;
+
+          _waterLeakageCount += 1;
+        }
+
+        if (_waterLeakageCount > 4 && _sharedPrefs.get("waterLeakageNotify", defaultValue: true)) {
+          if (
+            now - _sharedPrefs.get("lastWaterLeakageNotifyAt", defaultValue: 0) > 60 &&
+            now - _sharedPrefs.get("lastPipeFreezeNotifyAt", defaultValue: 0) < 60 * 24
+          ) {
+            await CloudMessaging.send(
+              FcmTopic.waterLeakage,
+              const FcmNotification(
+                title: "Water Leakage Alert",
+                body: "There appears to be a water leakage in your home, turn off the valve or take other actions."
+              )
+            );
+
+            await _sharedPrefs.put("lastWaterLeakageNotifyAt", now);
+          }
+
+          _waterLeakageCount = 0;
         }
       }
     );
@@ -162,8 +187,6 @@ class WebServer {
       _instance = WebServer._();
       _instance!._dataController = StreamController<dynamic>();
       _instance!._errorController = StreamController<dynamic>();
-
-      _instance!._sharedPrefs = await SharedPreferences.getInstance();
 
       await runZonedGuarded(
         () async {
@@ -224,16 +247,6 @@ class WebServer {
 
   void _onRequest(HttpRequest request) async {
     switch (request.uri.path) {
-      case "/": {
-        request.response.write(
-          jsonEncode(
-            {
-              "Hello": "World"
-            }
-          )
-        );
-        request.response.close();
-      }
       case "/ws": {
         _handleSocket(request);
       }
@@ -251,7 +264,13 @@ class WebServer {
       }
       default: {
         request.response.statusCode = 404;
-        request.response.write("Not Found");
+        request.response.write(
+          jsonEncode(
+            {
+              "msg": "Not Found"
+            }
+          )
+        );
         request.response.close();
       }
     }
@@ -427,7 +446,7 @@ class WebServer {
       request.response.write(
         jsonEncode(
           {
-            "target": _sharedPrefs.getDouble("waterDistTarget") ?? -1
+            "target": _sharedPrefs.get("waterDistTarget", defaultValue: -1)
           }
         )
       );
@@ -466,7 +485,7 @@ class WebServer {
     dynamic jsonBody = jsonDecode(body);
 
     if (jsonBody case {"target": double target}) {
-      _sharedPrefs.setDouble("waterDistTarget", target);
+      await _sharedPrefs.put("waterDistTarget", target);
 
       request.response.close();
       return;
@@ -488,7 +507,7 @@ class WebServer {
       request.response.write(
         jsonEncode(
           {
-            "limit": _sharedPrefs.getInt("waterLimit") ?? -1
+            "limit": _sharedPrefs.get("waterLimit", defaultValue: -1)
           }
         )
       );
@@ -527,7 +546,7 @@ class WebServer {
     dynamic jsonBody = jsonDecode(body);
 
     if (jsonBody case {"limit": int limit}) {
-      _sharedPrefs.setInt("waterLimit", limit);
+      await _sharedPrefs.put("waterLimit", limit);
 
       request.response.close();
       return;
@@ -549,10 +568,11 @@ class WebServer {
       request.response.write(
         jsonEncode(
           {
-            "status": _sharedPrefs.getBool("waterValve") ?? false
+            "status": _sharedPrefs.get("waterValve", defaultValue: false)
           }
         )
       );
+
       request.response.close();
       return;
     }
@@ -588,7 +608,7 @@ class WebServer {
     dynamic jsonBody = jsonDecode(body);
 
     if (jsonBody case {"status": bool status}) {
-      _sharedPrefs.setBool("waterValve", status);
+      await _sharedPrefs.put("waterValve", status);
 
       request.response.close();
       return;

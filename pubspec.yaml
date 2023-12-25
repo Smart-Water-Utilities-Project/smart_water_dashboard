@@ -37,8 +37,10 @@ dependencies:
   uuid: ^4.1.0
   syncfusion_flutter_charts: ^23.1.44
   path_provider: ^2.1.1
-  shared_preferences: ^2.2.2
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
   flutter_secure_storage: ^9.0.0
+  intl: ^0.18.1
 
 dev_dependencies:
   flutter_test:

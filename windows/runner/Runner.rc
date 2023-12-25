@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "smart_water_dashboard" "\0"
+            VALUE "CompanyName", "dev.nightfeater" "\0"
+            VALUE "FileDescription", "Smart Water Dashboard" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "smart_water_dashboard" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2023 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "smart_water_dashboard.exe" "\0"
-            VALUE "ProductName", "smart_water_dashboard" "\0"
+            VALUE "InternalName", "Smart Water Dashboard" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2023 dev.nightfeater. All rights reserved." "\0"
+            VALUE "OriginalFilename", "Smart Water Dashboard.exe" "\0"
+            VALUE "ProductName", "Smart Water Dashboard" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

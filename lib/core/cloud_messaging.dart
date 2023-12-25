@@ -1,13 +1,17 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
+import "dart:async";
+import "dart:convert";
+import "dart:io";
 
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:smart_water_dashboard/core/extension.dart';
+import "package:flutter_secure_storage/flutter_secure_storage.dart";
+
+import "package:smart_water_dashboard/core/extension.dart";
 
 
 enum FcmTopic {
-  waterLeakage("/waterLeakage");
+  waterLeakage("/waterLeakage"),
+  waterLimit("/waterLimit"),
+  pipeFreeze("/pipeFreeze"),
+  devTest("/devTest");
 
   final String _path;
 
@@ -38,7 +42,7 @@ class CloudMessaging {
   static StreamSink<String> get _logSink => _logController.sink;
   static Stream<String> get log => _logController.stream;
 
-  static Future<int> send(FcmTopic topic, FcmNotification notification, {Map<String, String>? data}) async {
+  static Future<int?> send(FcmTopic topic, FcmNotification notification, {Map<String, String>? data}) async {
     Uri uri = Uri.parse("https://fcm.googleapis.com/fcm/send");
 
     String serverKey = await _secureStorage.read(key: "fcmServerKey") ?? "";
@@ -56,6 +60,11 @@ class CloudMessaging {
     req.write(requestBody);
 
     HttpClientResponse res = await req.close();
+
+    if (res.statusCode != 200) {
+      _logSink.add("Unable to send FCM notification, make sure you've set the FCM token");
+      return null;
+    }
 
     int messageId = jsonDecode(await res.body())["message_id"];
 
