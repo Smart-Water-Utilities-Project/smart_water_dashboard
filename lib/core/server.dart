@@ -125,7 +125,9 @@ class WebServer {
             client.socket.add(
               WebSocketEvent(
                 opCode: 3,
-                data: _sharedPrefs.get("waterDistTarget", defaultValue: 1.0)
+                data: {
+                  "wl": _sharedPrefs.get("waterDistTarget", defaultValue: 1.0)
+                }
               ).toJson()
             );
           }
