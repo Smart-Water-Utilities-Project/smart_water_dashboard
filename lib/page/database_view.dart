@@ -23,6 +23,17 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
   List<WaterRecord> _data = [];
   late Timer _updateTimer;
 
+
+  final TextEditingController _dateInput = TextEditingController(
+    text: DateFormat("yyyy/MM/dd").format(DateTime.now())
+  );
+  final TextEditingController _timeInput = TextEditingController(
+    text: DateFormat("hh:mm").format(DateTime.now())
+  );
+  final TextEditingController _waterFlowInput = TextEditingController(text: "0.0");
+  final TextEditingController _waterTempInput = TextEditingController(text: "0.0");
+  final TextEditingController _waterDistInput = TextEditingController(text: "0.0");
+
   void _updateData() {
     _data = DatabaseHandler.instance.getRecordByLimit(_pageIndex * _rowPerPage, _pageIndex * _rowPerPage + _rowPerPage);
   }
@@ -44,6 +55,12 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
   @override
   void dispose() {
     _updateTimer.cancel();
+
+    _dateInput.dispose();
+    _timeInput.dispose();
+    _waterFlowInput.dispose();
+    _waterTempInput.dispose();
+    _waterDistInput.dispose();
     super.dispose();
   }
 
@@ -111,15 +128,12 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
                   borderRadius: BorderRadius.circular(8),
                   onTap: () async {
                     DateTime recordAt = DateTime.now();
-                    TextEditingController dateInput = TextEditingController(
-                      text: DateFormat("yyyy/MM/dd").format(recordAt)
-                    );
-                    TextEditingController timeInput = TextEditingController(
-                      text: DateFormat("hh:mm").format(recordAt)
-                    );
-                    TextEditingController waterFlowInput = TextEditingController(text: "0.0");
-                    TextEditingController waterTempInput = TextEditingController(text: "0.0");
-                    TextEditingController waterDistInput = TextEditingController(text: "0.0");
+
+                    _dateInput.text = DateFormat("yyyy/MM/dd").format(recordAt);
+                    _timeInput.text = DateFormat("hh:mm").format(recordAt);
+                    _waterFlowInput.text = "0.0";
+                    _waterTempInput.text = "0.0";
+                    _waterDistInput.text = "0.0";
 
                     await showDialog(
                       context: context,
@@ -130,7 +144,7 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               TextField(
-                                controller: dateInput,
+                                controller: _dateInput,
                                 readOnly: true,
                                 maxLines: 1,
                                 decoration: const InputDecoration(
@@ -142,11 +156,11 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
                                     firstDate: DateTime.fromMillisecondsSinceEpoch(0),
                                     lastDate: DateTime.tryParse("2100-01-01")!
                                   ) ?? DateTime.now();
-                                  dateInput.text = DateFormat("yyyy/MM/dd").format(recordAt);
+                                  _dateInput.text = DateFormat("yyyy/MM/dd").format(recordAt);
                                 },
                               ),
                               TextField(
-                                controller: timeInput,
+                                controller: _timeInput,
                                 readOnly: true,
                                 maxLines: 1,
                                 decoration: const InputDecoration(
@@ -159,11 +173,11 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
                                       initialTime: TimeOfDay.now()
                                     ) ?? TimeOfDay.now()
                                   );
-                                  timeInput.text = DateFormat("hh:mm").format(recordAt);
+                                  _timeInput.text = DateFormat("hh:mm").format(recordAt);
                                 },
                               ),
                               TextField(
-                                controller: waterFlowInput,
+                                controller: _waterFlowInput,
                                 maxLines: 1,
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                 decoration: const InputDecoration(
@@ -171,7 +185,7 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
                                 ),
                               ),
                               TextField(
-                                controller: waterTempInput,
+                                controller: _waterTempInput,
                                 maxLines: 1,
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                 decoration: const InputDecoration(
@@ -179,7 +193,7 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
                                 ),
                               ),
                               TextField(
-                                controller: waterDistInput,
+                                controller: _waterDistInput,
                                 maxLines: 1,
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                 decoration: const InputDecoration(
@@ -199,9 +213,9 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
                               onPressed: () {
                                 DatabaseHandler.instance.insertWaterRecord(
                                   recordAt.toMinutesSinceEpoch().floor(),
-                                  double.tryParse(waterFlowInput.text) ?? 0.0,
-                                  double.tryParse(waterTempInput.text) ?? 0.0,
-                                  double.tryParse(waterDistInput.text) ?? 0.0,
+                                  double.tryParse(_waterFlowInput.text) ?? 0.0,
+                                  double.tryParse(_waterTempInput.text) ?? 0.0,
+                                  double.tryParse(_waterDistInput.text) ?? 0.0,
                                 );
 
                                 Navigator.of(context).pop();
@@ -212,12 +226,6 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
                         );
                       }
                     );
-
-                    dateInput.dispose();
-                    timeInput.dispose();
-                    waterFlowInput.dispose();
-                    waterTempInput.dispose();
-                    waterDistInput.dispose();
                   },
                   child: const Center(
                     child: Icon(
@@ -235,7 +243,6 @@ class _DatabaseViewPageState extends State<DatabaseViewPage> {
           Expanded(
             child: ListView.separated(
               itemCount: _data.length,
-              physics: const NeverScrollableScrollPhysics(),
               itemBuilder: (context, index) {
                 return RowItem(
                   data: _data[index],

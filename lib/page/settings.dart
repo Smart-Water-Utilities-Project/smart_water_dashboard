@@ -53,11 +53,9 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(0, 30, 50, 30),
         children: [
-          const Spacer(),
           const Text(
             "更改伺服器位址",
             style: TextStyle(
@@ -128,7 +126,7 @@ class _SettingsPageState extends State<SettingsPage> {
               )
             ],
           ),
-          const Spacer(),
+          const SizedBox(height: 30,),
           const Text(
             "清空資料庫",
             style: TextStyle(
@@ -171,7 +169,7 @@ class _SettingsPageState extends State<SettingsPage> {
             },
             child: const Text("Drop Database"),
           ),
-          const Spacer(),
+          const SizedBox(height: 30,),
           const Text(
             "更改 FCM Server Key",
             style: TextStyle(
@@ -182,7 +180,7 @@ class _SettingsPageState extends State<SettingsPage> {
           Row(
             children: [
               SizedBox(
-                width: 140,
+                width: 260,
                 child: TextField(
                   controller: _fcmServerkeyInputController,
                   keyboardType: TextInputType.text,
@@ -224,7 +222,7 @@ class _SettingsPageState extends State<SettingsPage> {
               )
             ],
           ),
-          const Spacer(),
+          const SizedBox(height: 30,),
           const Text(
             "發送測試通知",
             style: TextStyle(
@@ -264,7 +262,7 @@ class _SettingsPageState extends State<SettingsPage> {
             },
             child: const Text("Send Notification"),
           ),
-          const Spacer(),
+          const SizedBox(height: 30,),
           const Text(
             "更改用水上限",
             style: TextStyle(
@@ -330,8 +328,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ],
           ),
-          const Spacer(),
-        ],
+        ]
       ),
     );
   }
