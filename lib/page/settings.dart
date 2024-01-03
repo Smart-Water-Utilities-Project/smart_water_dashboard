@@ -21,7 +21,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController _fcmServerkeyInputController;
   late final TextEditingController _dailyWaterUsageLimitInputController;
   late final TextEditingController _monthlyWaterUsageLimitInputController;
-  final Box _sharedPref = Hive.box("sharedPrefs");
+  final Box _sharedPrefs = Hive.box("sharedPrefs");
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   void _initSharedPref() async {
@@ -31,23 +31,28 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
+
     _serverIpInputController = TextEditingController(
-      text: _sharedPref.get("serverIp", defaultValue: "127.0.0.1")
+      text: _sharedPrefs.get("serverIp", defaultValue: "127.0.0.1")
     );
     _serverPortInputController = TextEditingController(
-      text: _sharedPref.get("serverPort", defaultValue: "5678")
+      text: _sharedPrefs.get("serverPort", defaultValue: "5678")
     );
 
     _fcmServerkeyInputController = TextEditingController(text: "");
 
     _dailyWaterUsageLimitInputController = TextEditingController(
-      text: _sharedPref.get("dailyWaterUsageLimit", defaultValue: -1).toString()
+      text: _sharedPrefs.get("dailyWaterUsageLimit", defaultValue: -1).toString()
     );
     _monthlyWaterUsageLimitInputController = TextEditingController(
-      text: _sharedPref.get("monthlyWaterUsageLimit", defaultValue: -1).toString()
+      text: _sharedPrefs.get("monthlyWaterUsageLimit", defaultValue: -1).toString()
     );
 
     _initSharedPref();
+
+    _sharedPrefs.watch(key: "dailyWaterUsageLimit").listen((event) {
+      _dailyWaterUsageLimitInputController.text = event.value;
+    });
   }
 
   @override
@@ -101,8 +106,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     int.parse(_serverPortInputController.text)
                   );
 
-                  await _sharedPref.put("serverIp", _serverIpInputController.text);
-                  await _sharedPref.put("serverPort", _serverPortInputController.text);
+                  await _sharedPrefs.put("serverIp", _serverIpInputController.text);
+                  await _sharedPrefs.put("serverPort", _serverPortInputController.text);
                   
                   if (!mounted) return;
                   showDialog(
@@ -300,11 +305,11 @@ class _SettingsPageState extends State<SettingsPage> {
               const SizedBox(width: 22,),
               FilledButton(
                 onPressed: () async {
-                  await _sharedPref.put("dailyWaterUsageLimit", int.tryParse(_dailyWaterUsageLimitInputController.text) ?? -1);
-                  await _sharedPref.put("monthlyWaterUsageLimit", int.tryParse(_monthlyWaterUsageLimitInputController.text) ?? -1);
+                  await _sharedPrefs.put("dailyWaterUsageLimit", int.tryParse(_dailyWaterUsageLimitInputController.text) ?? -1);
+                  await _sharedPrefs.put("monthlyWaterUsageLimit", int.tryParse(_monthlyWaterUsageLimitInputController.text) ?? -1);
 
-                  await _sharedPref.put("lastDailyWaterUsageNotifyAt", -1);
-                  await _sharedPref.put("lastMonthlyWaterUsageNotifyAt", -1);
+                  await _sharedPrefs.put("lastDailyWaterUsageNotifyAt", -1);
+                  await _sharedPrefs.put("lastMonthlyWaterUsageNotifyAt", -1);
                   
                   if (!mounted) return;
                   showDialog(

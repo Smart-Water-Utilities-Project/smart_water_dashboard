@@ -125,7 +125,9 @@ class WebServer {
             client.socket.add(
               WebSocketEvent(
                 opCode: 3,
-                data: _sharedPrefs.get("waterDistTarget", defaultValue: 1.0)
+                data: {
+                  "wl": _sharedPrefs.get("waterDistTarget", defaultValue: 1.0)
+                }
               ).toJson()
             );
           }
@@ -513,7 +515,7 @@ class WebServer {
       request.response.write(
         jsonEncode(
           {
-            "limit": _sharedPrefs.get("waterLimit", defaultValue: -1)
+            "daily_limit": _sharedPrefs.get("dailyWaterUsageLimit", defaultValue: -1)
           }
         )
       );
@@ -551,10 +553,10 @@ class WebServer {
     
     dynamic jsonBody = jsonDecode(body);
 
-    if (jsonBody case {"limit": int limit}) {
+    if (jsonBody case {"daily_limit": int limit}) {
       request.response.statusCode = 204;
 
-      await _sharedPrefs.put("waterLimit", limit);
+      await _sharedPrefs.put("dailyWaterUsageLimit", limit);
 
       request.response.close();
       return;
