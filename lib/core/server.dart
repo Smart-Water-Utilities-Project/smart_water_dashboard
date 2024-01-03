@@ -621,6 +621,18 @@ class WebServer {
       await _sharedPrefs.put("waterValve", status);
 
       request.response.close();
+
+      _clients.forEach((uid, client) {
+        client.socket.add(
+          WebSocketEvent(
+            opCode: 0,
+            data: {
+              "status": _sharedPrefs.get("waterValve", defaultValue: true)
+            }
+          ).toJson()
+        );
+      });
+      
       return;
     }
 
