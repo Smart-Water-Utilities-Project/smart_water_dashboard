@@ -540,44 +540,24 @@ class WebServer {
     String body = await request.body();
 
     if (body.isEmpty) {
-      request.response.statusCode = 400;
-      request.response.write(
-        jsonEncode(
-          {
-            "msg": "Request body can't be empty"
-          }
-        )
-      );
+      request.response.statusCode = 204;
+
       request.response.close();
       return;
     }
     
     dynamic jsonBody = jsonDecode(body);
 
-    if (jsonBody case {"daily_limit": int limit}) {
-      request.response.statusCode = 204;
-
-      await _sharedPrefs.put("dailyWaterUsageLimit", limit);
-
-      request.response.close();
-      return;
-    } else if (jsonBody case {"monthly_limit": int limit}) {
-      request.response.statusCode = 204;
-
-      await _sharedPrefs.put("monthlyWaterUsageLimit", limit);
-
-      request.response.close();
-      return;
-    }
-
-    request.response.statusCode = 400;
-    request.response.write(
-      jsonEncode(
-        {
-          "msg": "Body pattern error"
-        }
-      )
+    await _sharedPrefs.put(
+      "dailyWaterUsageLimit",
+      jsonBody["daily_limit"] ?? _sharedPrefs.get("dailyWaterUsageLimit", defaultValue: true)
     );
+    await _sharedPrefs.put(
+      "monthlyWaterUsageLimit",
+      jsonBody["monthly_limit"] ?? _sharedPrefs.get("monthlyWaterUsageLimit", defaultValue: true)
+    );
+
+    request.response.statusCode = 204;
     request.response.close();
   }
 
