@@ -75,13 +75,8 @@ class DatabaseHandler {
     );
   }
 
-  Future<void> _handleWaterLimitNotify(double waterFlow) async {
-    if (
-      _sharedPrefs.get("dailyWaterUsageLimit", defaultValue: -1) < 0 ||
-      !_sharedPrefs.get("dailyWaterUsageLimitNotify", defaultValue: true)
-    ) {
-      return;
-    }
+  Future<void> _handleDailyWaterLimitNotify(double waterFlow) async {
+    if (_sharedPrefs.get("dailyWaterUsageLimit", defaultValue: -1) < 0) return;
 
     DateTime now = DateTime.now();
 
@@ -92,20 +87,54 @@ class DatabaseHandler {
       );
 
       if (_sharedPrefs.get("currentDailyWaterUsage") >= _sharedPrefs.get("dailyWaterUsageLimit")) {
-        await CloudMessaging.send(
-          FcmTopic.waterLimit,
-          const FcmNotification(
-            title: "Daily Water Usage Exceeded",
-            body: "Daily water usage limits have been exceeded, please take actions to reduce your daily water usage."
-          ),
-          data: {
-            "limit": _sharedPrefs.get("dailyWaterUsageLimit").toString(),
-            "current": _sharedPrefs.get("currentDailyWaterUsage").toString()
-          }
-        );
+        if (_sharedPrefs.get("waterUsageLimitNotify", defaultValue: true)) {
+          await CloudMessaging.send(
+            FcmTopic.waterLimit,
+            const FcmNotification(
+              title: "Daily Water Usage Exceeded",
+              body: "Daily water usage limits have been exceeded, please take actions to reduce your daily water usage."
+            ),
+            data: {
+              "limit": _sharedPrefs.get("dailyWaterUsageLimit").toString(),
+              "current": _sharedPrefs.get("currentDailyWaterUsage").toString()
+            }
+          );
+        }
 
         await _sharedPrefs.put("lastDailyWaterUsageNotifyAt", now.weekday);
         await _sharedPrefs.delete("currentDailyWaterUsage");
+      }
+    }
+  }
+
+  Future<void> _handleMonthlyWaterLimitNotify(double waterFlow) async {
+    if (_sharedPrefs.get("monthlyWaterUsageLimit", defaultValue: -1) < 0) return;
+
+    DateTime now = DateTime.now();
+
+    if (now.month != _sharedPrefs.get("lastMonthlyWaterUsageNotifyAt", defaultValue: -1)) {
+      await _sharedPrefs.put(
+        "currentMonthlyWaterUsage",
+        waterFlow + _sharedPrefs.get("currentMonthlyWaterUsage", defaultValue: 0.0)
+      );
+
+      if (_sharedPrefs.get("currentMonthlyWaterUsage") >= _sharedPrefs.get("monthlyWaterUsageLimit")) {
+        if (_sharedPrefs.get("waterUsageLimitNotify", defaultValue: true)) {
+          await CloudMessaging.send(
+            FcmTopic.waterLimit,
+            const FcmNotification(
+              title: "Monthly Water Usage Exceeded",
+              body: "Monthly water usage limits have been exceeded, please take actions to reduce your monthly water usage."
+            ),
+            data: {
+              "limit": _sharedPrefs.get("monthlyWaterUsageLimit").toString(),
+              "current": _sharedPrefs.get("currentMonthlyWaterUsage").toString()
+            }
+          );
+        }
+
+        await _sharedPrefs.put("lastMonthlyWaterUsageNotifyAt", now.month);
+        await _sharedPrefs.delete("currentMonthlyWaterUsage");
       }
     }
   }
@@ -149,7 +178,8 @@ class DatabaseHandler {
       """
     );
 
-    _handleWaterLimitNotify(waterFlow);
+    _handleDailyWaterLimitNotify(waterFlow);
+    _handleMonthlyWaterLimitNotify(waterFlow);
     _handlePipeFreezeNotify(waterTemp);
   }
 

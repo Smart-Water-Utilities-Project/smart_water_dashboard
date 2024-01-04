@@ -452,7 +452,7 @@ class WebServer {
       request.response.write(
         jsonEncode(
           {
-            "target": _sharedPrefs.get("waterDistTarget", defaultValue: -1)
+            "target": _sharedPrefs.get("waterDistTarget", defaultValue: 0.5)
           }
         )
       );
@@ -515,7 +515,8 @@ class WebServer {
       request.response.write(
         jsonEncode(
           {
-            "daily_limit": _sharedPrefs.get("dailyWaterUsageLimit", defaultValue: -1)
+            "daily_limit": _sharedPrefs.get("dailyWaterUsageLimit", defaultValue: -1),
+            "monthly_limit": _sharedPrefs.get("monthlyWaterUsageLimit", defaultValue: -1)
           }
         )
       );
@@ -557,6 +558,13 @@ class WebServer {
       request.response.statusCode = 204;
 
       await _sharedPrefs.put("dailyWaterUsageLimit", limit);
+
+      request.response.close();
+      return;
+    } else if (jsonBody case {"monthly_limit": int limit}) {
+      request.response.statusCode = 204;
+
+      await _sharedPrefs.put("monthlyWaterUsageLimit", limit);
 
       request.response.close();
       return;
@@ -644,7 +652,7 @@ class WebServer {
           {
             "pipe_freeze": _sharedPrefs.get("pipeFreezeNotify", defaultValue: true),
             "water_leakage": _sharedPrefs.get("waterLeakageNotify", defaultValue: true),
-            "daily_water_usage_limit": _sharedPrefs.get("dailyWaterUsageLimitNotify", defaultValue: true),
+            "water_usage_limit": _sharedPrefs.get("waterUsageLimitNotify", defaultValue: true),
           }
         )
       );
@@ -686,8 +694,8 @@ class WebServer {
       jsonBody["water_leakage"] ?? _sharedPrefs.get("waterLeakageNotify", defaultValue: true)
     );
     await _sharedPrefs.put(
-      "dailyWaterUsageLimitNotify",
-      jsonBody["daily_water_usage_limit"] ?? _sharedPrefs.get("dailyWaterUsageLimitNotify", defaultValue: true)
+      "waterUsageLimitNotify",
+      jsonBody["water_usage_limit"] ?? _sharedPrefs.get("waterUsageLimitNotify", defaultValue: true)
     );
 
     request.response.statusCode = 204;
