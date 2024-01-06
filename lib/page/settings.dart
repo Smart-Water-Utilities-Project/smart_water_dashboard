@@ -51,10 +51,10 @@ class _SettingsPageState extends State<SettingsPage> {
     _initSharedPref();
 
     _sharedPrefs.watch(key: "dailyWaterUsageLimit").listen((event) {
-      _dailyWaterUsageLimitInputController.text = event.value;
+      _dailyWaterUsageLimitInputController.text = event.value.toString();
     });
     _sharedPrefs.watch(key: "monthlyWaterUsageLimit").listen((event) {
-      _monthlyWaterUsageLimitInputController.text = event.value;
+      _monthlyWaterUsageLimitInputController.text = event.value.toString();
     });
   }
 
